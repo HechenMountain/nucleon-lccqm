@@ -3,6 +3,7 @@ module Sivers
 using Base: pi
 using Printf
 using PyPlot
+using MCIntegration
 
 export  gaussian, plot_gaussian,
         gaussian_3d, plot_gaussian_3d
@@ -32,6 +33,7 @@ function gaussian_3d(x,y,z,norm,width_x,width_y,width_z)
     exponent =  x^2/(2*width_x) + y^2/(2*width_y) + z^2/(2*width_z)
     return norm * exp(-exponent)
 end
+
 """
     plot_gaussian(norm, width; xrange=(-5, 5), n=1000)
 
@@ -48,11 +50,13 @@ function plot_gaussian(norm,width;xrange=(-5,5), n=1000)
     legend()
     grid(true)
 end
+
 """
     plot_gaussian_3d(norm, width_x, width_y, width_z; range=(-3, 3), n=50)
 
 Plots a 3D Gaussian over x, y, z using surface slices in each plane.
 """
+
 function plot_gaussian_3d(norm, width_x, width_y, width_z; rspan=(-3, 3), n=50)
     x = range(rspan[1], rspan[2], length=n)
     y = range(rspan[1], rspan[2], length=n)
