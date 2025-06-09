@@ -2,11 +2,12 @@ module Sivers
 
 using Base: pi
 using Printf
+using LinearAlgebra
 using PyPlot
-using MCIntegration
+# using MCIntegration
 using Cuba
 # using SpecialFunctions
-using Cubature
+# using Cubature
 
 # Parallelization
 using Base.Threads
@@ -16,12 +17,12 @@ using ProgressMeter
 const Atomic = Base.Threads.Atomic
 const atomic_add! = Base.Threads.atomic_add!
 
-export  gaussian, plot_gaussian,
-        gaussian_3d, plot_gaussian_3d, SPIN_MAP,kronecker_delta,
+export  SPIN_MAP,kronecker_delta,
         momentum_space_wavefunction, spin_wavefunction,
         baryon_wave_function, normalize_wave_function,
-        f1_form_factor, f1_form_factor_table
-
+        f1_form_factor, f1_form_factor_table,cubic_color_corellator,gluon_sivers_direct
+# All possible proton and constituent quar spin configurations
+# Eq.(22) and (23) in the draft
 const SPIN_MAP = Dict{NTuple{4, Int}, Function}(
     # s0 = +1
     (+1, +1, +1, -1) => (a1,a2,a3,k1L,k1R,k2L,k2R,k3L,k3R) ->  2a1*a2*a3 + a1*k2L*k3R + k1L*a2*k3R,
@@ -83,8 +84,10 @@ end
 
 function normalize_wave_function(s0;mq=0.26, β=0.55)
     total = 0.0
+    # Cuhre seems to be faster with multiple calls and 
+    # a smoother integrand
     for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
-        integrand(x,f) = begin
+        function integrand(x,f)
             # Cuba samples are [0,1]^n
             x1 = x[1]
             x2 = (1 - x1) * x[2]
@@ -96,20 +99,17 @@ function normalize_wave_function(s0;mq=0.26, β=0.55)
             k3 = k1 - k2  # Enforce transverse momentum conservation
             # Parton x is not transformed, but k_perp is
             dk = [1/(1 - x[i])^2 for i in 3:6]
-        
-            #wf = baryon_wave_function(s0,s1,s2,s3,k1,k2,k3,x1,x2,x3;mq=mq,β=β)
+
             ms_wf = momentum_space_wavefunction(k1, k2, k3, x1, x2, x3; mq=mq, β=β)
             spin_wf = spin_wavefunction(s0,s1,s2,s3,k1,k2,k3,x1,x2,x3;mq=mq,β=β) 
             wf = ms_wf * spin_wf
             f[1] = abs2(wf) * prod(dk)
         end
         result, err = cuhre(integrand, 6, 1, atol=1e-8, rtol=1e-6);
-        # result, err = vegas(integrand, 6, 1, maxevals=5_000_000, nvec=10_000);
         total += result[1]
     end
-    # println(" Result of cuhre: ", result[1], " ± ", err[1])
     # Integral is (-∞,+∞) for each k
-    return 1/sqrt(1/(4π)/(2π)^2 * total*2^4)
+    return 1/sqrt(1/(4π)/(2π)^2 * total * 2^4)
 end
 
 function f1_form_factor(Δ;norm=574.8236114423403,mq=0.26, β=0.55)
@@ -118,14 +118,14 @@ function f1_form_factor(Δ;norm=574.8236114423403,mq=0.26, β=0.55)
     total = 0
     for (i,q) in enumerate(charges)
         for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
-            integrand(x,f) = begin
+            function integrand(x,f)
                 # Cuba samples are [0,1]^n
                 x1 = x[1]
                 x2 = (1 - x1) * x[2]
                 x3 = 1 - x1 - x2
                 # Rescale to correct intervals [0,∞)
-                k1 = [x[i]/(1 - x[i]) for i in 3:4]
-                k2 = [x[i]/(1 - x[i]) for i in 5:6]
+                k1 = [x[j]/(1 - x[j]) for j in 3:4]
+                k2 = [x[j]/(1 - x[j]) for j in 5:6]
         
                 k3 = k1 - k2  # Enforce transverse momentum conservation
 
@@ -134,7 +134,7 @@ function f1_form_factor(Δ;norm=574.8236114423403,mq=0.26, β=0.55)
                 k3prime = k3 - x3 * Δ + kronecker_delta(i,3) * Δ
 
                 # Parton x is not transformed, but k_perp is
-                dk = [1/(1 - x[i])^2 for i in 3:6]
+                dk = [1/(1 - x[j])^2 for j in 3:6]
                 # Both wave functions have spin up
                 wf1 = baryon_wave_function(1,s1,s2,s3,k1,k2,k3,x1,x2,x3;norm=norm,mq=mq,β=β)
                 wf2 = baryon_wave_function(1,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3;norm=norm,mq=mq,β=β)
@@ -166,74 +166,176 @@ function f1_form_factor_table(Δ_array)
     return results
 end
 
-"""
-    gaussian(x, norm, width)
+function cubic_color_corellator(s01,s02,q1,q2,q3;norm=574.8236114423403,mq=0.26, β=0.55)
+    # Essentially as in f1_form_factor but with different kinematics
+    # placeholder for dabc
+    dabc = 1
+    # Δ determined from overall momentum conservation
+    Δ = - (q1 + q2 + q3)
+    total = 0
+    # It seems cuhre is faster with the sum outside the integrand
+    for j1 in 1:3, j2 in 1:3, j3 in 1:3
+        if j1 == j2 || j1 == j3 || j2 == j3
+            continue
+        end
+        for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
+            function integrand(x,f)
+                # Cuba samples are [0,1]^n
+                x1 = x[1]
+                x2 = (1 - x1) * x[2]
+                x3 = 1 - x1 - x2
+                # Rescale to correct intervals [0,∞)
+                k1 = [x[j]/(1 - x[j]) for j in 3:4]
+                k2 = [x[j]/(1 - x[j]) for j in 5:6]
+        
+                k3 = k1 - k2  # Enforce transverse momentum conservation
+                # Momentum inflow from each attached vertex
+                delta_terms =  kronecker_delta(1, j1) * q1 - kronecker_delta(2, j2) * q2 - kronecker_delta(3, j3) * q3
+                # Residual kinematics fixed by parton x
+                k1prime = k1 - x1 * Δ - delta_terms
+                k2prime = k2 - x2 * Δ - delta_terms
+                k3prime = k3 - x3 * Δ - delta_terms
 
-Returns the value of a Gaussian function at position `x`, with normalization `norm` and width `width`.
-The function is defined as:
+                # Parton x is not transformed, but k_perp is
+                dk = [1/(1 - x[j])^2 for j in 3:6]
+                # Both wave functions have spin up
+                wf1 = baryon_wave_function(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3;norm=norm,mq=mq,β=β)
+                wf2 = baryon_wave_function(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3;norm=norm,mq=mq,β=β)
 
-    norm * exp(-x^2 / (2 * width^2))
-"""
-
-function gaussian(x,norm,width)
-    return norm * exp(-x^2/(2*width^2))
+                f[1] = real(conj(wf2) * wf1 * prod(dk))
+            end
+            result, err = cuhre(integrand, 6, 1, atol=1e-12, rtol=1e-10);
+            total += result[1]
+        end
+    end
+    # Integral is (-∞,+∞) for each k so we get 2^4
+    total = - 0.25 * dabc * 3 / (4π) / (2π)^2 * total * 2^4
+    return total
 end
-"""
-    gaussian_3d(x, norm, width)
 
-Returns the value of a 3D Gaussian function at position `x, y, z`, with normalization `norm` and width `width_x, width_y, width_z`.
-The function is defined as:
+function three_gluon_amplitude(s01,s02,r_perp,b_perp,Δ)
+    # Eq. 1 in chic_sivers-notes or D11 in 2402.19134, respectively
+    # prf is a placeholder for stuff like g³, Nc...
+    prf = 1
+    function integrand(x,f)
+        # Here I'm not so sure about the symmetry
+        # But we could probably utilize it
+        q1 = [tan(pi * (x[j] - 0.5)) for j in 1:2]
+        q2 = [tan(pi * (x[j] - 0.5)) for j in 3:4]
+        q3 = [tan(pi * (x[j] - 0.5)) for j in 5:6]
+        # Jacobian
+        dq = [pi * sec(pi * (x[j] - 0.5))^2 for j in 1:6]
 
-    norm * exp(-x^2/(2*width_x) - y^2/(2*width_y) - z^2/(2*width_z))
-"""
-
-function gaussian_3d(x,y,z,norm,width_x,width_y,width_z)
-    exponent =  x^2/(2*width_x) + y^2/(2*width_y) + z^2/(2*width_z)
-    return norm * exp(-exponent)
+        ccc = cubic_color_corellator(s01,s02,q1,q2,q3) 
+        den = sum(q1.^2) * sum(q1.^2) * sum(q3.^2)
+        trig1 = sin(dot(b_perp, q1 + q2 + q3))
+        trig2 = sin(dot(r_perp/2, q1 - q2 - q3))
+        trig3 = sin(dot(r_perp/2, q1 + q2 + q3))
+        f[1] = ccc / den * trig1 * (trig2 + 1/3 * trig3) * prod(dq)
+    end
+    result, err = cuhre(integrand, 6, 1, atol=1e-12, rtol=1e-10);
+    return prf * result
 end
 
-"""
-    plot_gaussian(norm, width; xrange=(-5, 5), n=1000)
+function ft_three_gluon_amplitude(s01,s02,k_perp,Δ)
+    # Eq.13 in chic_sivers-notes
+    # FT over r_perp and b_perp to get 
+    # k_perp and Delta dependence 
+    function integrand(x,f)
+        # Again, not sure about the correct symmetry
+        # r_perp, b_perp ∈ (-∞, ∞)
+        r_perp = [tan(pi * (x[j] - 0.5)) for j in 1:2]
+        dr_perp = [pi * sec(pi * (x[j] - 0.5))^2 for j in 1:2]
 
-Plots the Gaussian with given normalization and width over the specified range.
-"""
+        b_perp = [tan(pi * (x[j] - 0.5)) for i in 3:4]
+        db_perp = [pi * sec(pi * (x[j] - 0.5))^2 for j in 3:4]
 
-function plot_gaussian(norm,width;xrange=(-5,5), n=1000)
-    x_values = range(xrange[1],xrange[2],length=n)
-    y_values = [gaussian(x,norm,width) for x in x_values]
-    figure()
-    plot(x_values,y_values,label=L"A\cdot e^{(-x^2)}")
-    xlabel(L"x")
-    ylabel(L"f(x)")
-    legend()
-    grid(true)
+        exponent = exp( - 1im * dot(k_perp,r_perp) - 1im * dot(Δ,b_perp))
+        ggg = three_gluon_amplitude(s01,s02,r_perp,b_perp,Δ)
+
+        ft_ggg_integrand = exponent * ggg * prod(dr_perp) * prod(db_perp)
+        f[1] = real(ft_ggg_integrand)
+    end
+    result, err = cuhre(integrand, 4, 1, atol=1e-10, rtol=1e-8)
+    return result[1]
 end
 
-"""
-    plot_gaussian_3d(norm, width_x, width_y, width_z; range=(-3, 3), n=50)
+function gluon_sivers_direct(k_perp)
+    dabc = 1
+    prf = 1
+    total = 0
+    # The forward part with spin flip gives the gluon sivers function
+    Δ = [0,0]
+    s01 = 1
+    s02 = -1
+    # It seems cuhre is faster with the sum outside the integrand
+    for j1 in 1:3, j2 in 1:3, j3 in 1:3
+        if j1 == j2 || j1 == j3 || j2 == j3
+            continue
+        end
+        for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
+            function integrand(x, f)
+                # Integration variables
+                x1 = x[1]
+                x2 = (1 - x1) * x[2]
+                x3 = 1 - x1 - x2
 
-Plots a 3D Gaussian over x, y, z using surface slices in each plane.
-"""
+                k1 = [tan(pi * (x[j] - 0.5)) for j in 3:4]
+                k2 = [tan(pi * (x[j] - 0.5)) for j in 5:6]
+                k3 = k1 - k2
+                dk = [1 / (1 - x[j])^2 for j in 3:6]
 
-function plot_gaussian_3d(norm, width_x, width_y, width_z; rspan=(-3, 3), n=50)
-    x = range(rspan[1], rspan[2], length=n)
-    y = range(rspan[1], rspan[2], length=n)
-    z = range(rspan[1], rspan[2], length=n)
+                q1 = [tan(pi * (x[j] - 0.5)) for j in 7:8]
+                q2 = [tan(pi * (x[j] - 0.5)) for j in 9:10]
+                q3 = [tan(pi * (x[j] - 0.5)) for j in 11:12]
+                dq = [pi * sec(pi * (x[j] - 0.5))^2 for j in 7:12]
 
-    # Meshgrid for x-y slice at z=0
-    X = [x[i] for i in 1:n, j in 1:n]
-    Y = [y[j] for i in 1:n, j in 1:n]
-    Zxy = [gaussian_3d(X[i,j], Y[i,j], 0.0, norm, width_x, width_y, width_z) for i in 1:n, j in 1:n]
+                r_perp = [tan(pi * (x[j] - 0.5)) for j in 13:14]
+                dr_perp = [pi * sec(pi * (x[j] - 0.5))^2 for j in 13:14]
 
-    fig = figure(figsize=(8, 6))
-    ax = fig.add_subplot(111, projection="3d")
-    ax.plot_surface(X, Y, Zxy, cmap="viridis", alpha=0.8)
+                b_perp = [tan(pi * (x[j] - 0.5)) for j in 15:16]
+                db_perp = [pi * sec(pi * (x[j] - 0.5))^2 for j in 15:16]
 
-    ax.set_xlabel(L"x")
-    ax.set_ylabel(L"y")
-    ax.set_zlabel(L"f(x, y, z{=}0)")
-    ax.set_title(L"\text{3D Gaussian slice at } z=0")
-    fig.tight_layout()
+                # cubic_color_corellator part
+                delta_terms = kronecker_delta(1, j1) * q1 - kronecker_delta(2, j2) * q2 - kronecker_delta(3, j3) * q3
+                k1prime = k1 - x1 * Δ - delta_terms
+                k2prime = k2 - x2 * Δ - delta_terms
+                k3prime = k3 - x3 * Δ - delta_terms
+                
+                wf1 = baryon_wave_function(s01, s1, s2, s3, k1, k2, k3, x1, x2, x3)
+                wf2 = baryon_wave_function(s02, s1, s2, s3, k1prime, k2prime, k3prime, x1, x2, x3)
+                ccc = real(conj(wf2) * wf1 * prod(dk))
+
+                # three gluon three_gluon_amplitude
+                den = sum(q1.^2) * sum(q2.^2) * sum(q3.^2)
+                trig1 = sin(dot(b_perp, q1 + q2 + q3))
+                trig2 = sin(dot(r_perp / 2, q1 - q2 - q3))
+                trig3 = sin(dot(r_perp / 2, q1 + q2 + q3))
+                three_gluon = ccc / den * trig1 * (trig2 + 1/3 * trig3) * prod(dq)
+
+                # Fourier Transform
+                exponent = exp(-1im * dot(k_perp, r_perp) - 1im * dot(Δ, b_perp))
+
+                f[1] = real(three_gluon * exponent * prod(dr_perp) * prod(db_perp))
+            end
+
+            result, err = cuhre(integrand, 16, 1, atol=1e-6, rtol=1e-6)
+            total += result[1]
+        end
+    end
+
+    total = dabc * prf * total
+    return total
+end
+
+function gluon_sivers(k_perp)
+    # Eq.19 in chic_sivers-notes
+    # We fix Delta = q1 + q2 + q3 = [0,0] since we are interested in the forward limit
+    # and take the spin-flip part to get the gluon Sivers function
+    s01 = 1
+    s02 = -1
+    result = ft_three_gluon_amplitude(s01,s02,k_perp,0)
+    return result 
 end
 
 end # module
