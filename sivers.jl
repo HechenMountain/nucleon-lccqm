@@ -4,10 +4,7 @@ using Base: pi
 using Printf
 using LinearAlgebra
 using PyPlot
-# using MCIntegration
 using Cuba
-# using SpecialFunctions
-# using Cubature
 
 # Parallelization
 using Base.Threads
@@ -17,10 +14,19 @@ using ProgressMeter
 const Atomic = Base.Threads.Atomic
 const atomic_add! = Base.Threads.atomic_add!
 
+# Parameters handled separately
+include("/mnt/c/Users/flori/Documents/PostDoc/Jupyter/Julia/sivers/parameters.jl")
+using .parameters: params
+
+# export  SPIN_MAP,kronecker_delta,
+#         momentum_space_wavefunction, spin_wavefunction,
+#         baryon_wavefunction, normalize_wavefunction,
+#         f1_form_factor, f1_form_factor_table,cubic_color_corellator,gluon_sivers_direct
+
 export  SPIN_MAP,kronecker_delta,
         momentum_space_wavefunction, spin_wavefunction,
-        baryon_wave_function, normalize_wave_function,
-        f1_form_factor, f1_form_factor_table,cubic_color_corellator,gluon_sivers_direct
+        baryon_wavefunction#, normalize_wavefunction
+
 # All possible proton and constituent quar spin configurations
 # Eq.(22) and (23) in the draft
 const SPIN_MAP = Dict{NTuple{4, Int}, Function}(
@@ -44,9 +50,13 @@ const SPIN_MAP = Dict{NTuple{4, Int}, Function}(
     (-1, +1, +1, +1) => (a1,a2,a3,k1L,k1R,k2L,k2R,k3L,k3R) -> - (-a1*k2L*k3L - k1L*a2*k3L + 2k1L*k2L*a3),
 );
 
+# δ_ij
 kronecker_delta(a, b) = a == b ? 1 : 0
 
-function spin_wavefunction(s0,s1,s2,s3,k1, k2, k3, x1, x2, x3;mq=0.26, β=0.55)
+function spin_wavefunction(s0,s1,s2,s3,k1, k2, k3, x1, x2, x3)
+    # Parameters
+    mq = params.mq
+
     if !all(s -> s == 1 || s == -1, (s0,s1,s2,s3))
         error("Invalid spin configuration:  ($(s0), $(s1), $(s2), $(s3)). Each value must be +1 or -1.")
     end
@@ -69,85 +79,123 @@ function spin_wavefunction(s0,s1,s2,s3,k1, k2, k3, x1, x2, x3;mq=0.26, β=0.55)
 end
 
 
-function momentum_space_wavefunction(k1, k2, k3, x1, x2, x3; mq = 0.26, β = 0.55)
+function momentum_space_wavefunction(k1, k2, k3, x1, x2, x3)
+    # Parameters
+    mq = params.mq
+    β = params.β
+
     mq2 = mq^2
     m02 = (sum(k1.^2) + mq2)/x1 + (sum(k2.^2) + mq2)/x2 + (sum(k3.^2) + mq2)/x3
     return exp(-m02 / (2 * β^2))
 end
 
-function baryon_wave_function(s0,s1,s2,s3,k1, k2, k3, x1, x2, x3;norm=574.8236114423403,mq=0.26, β=0.55)
-    ms_wf =  momentum_space_wavefunction(k1, k2, k3, x1, x2, x3; mq=mq, β=β)
-    spin_wf = spin_wavefunction(s0,s1,s2,s3,k1,k2,k3,x1,x2,x3;mq=mq,β=β)
+function baryon_wavefunction(s0,s1,s2,s3,k1, k2, k3, x1, x2, x3)
+    # Parameters
+    norm = params.norm
+
+    ms_wf =  momentum_space_wavefunction(k1, k2, k3, x1, x2, x3)
+    spin_wf = spin_wavefunction(s0,s1,s2,s3,k1,k2,k3,x1,x2,x3)
     wf = norm * ms_wf * spin_wf / sqrt(3)
     return wf
 end
 
-function normalize_wave_function(s0;mq=0.26, β=0.55)
-    total = 0.0
-    # Cuhre seems to be faster with multiple calls and 
-    # a smoother integrand
-    for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
-        function integrand(x,f)
-            # Cuba samples are [0,1]^n
-            x1 = x[1]
-            x2 = (1 - x1) * x[2]
-            x3 = 1 - x1 - x2
-            # Rescale to correct intervals [0,∞)
-            k1 = [x[i]/(1 - x[i]) for i in 3:4]
-            k2 = [x[i]/(1 - x[i]) for i in 5:6]
-    
-            k3 = k1 - k2  # Enforce transverse momentum conservation
-            # Parton x is not transformed, but k_perp is
-            dk = [1/(1 - x[i])^2 for i in 3:6]
+# Currently the summation is done inside the integrand
+# such that cuhre is only called once.
+# However, the speed-up is only mild since
+# the integrand is better behaved when individual
+# contributions are integrated first.
+# We might want to keep this in mind if 
+# higher precision is desired.
+function normalize_wavefunction(s0)
+    function integrand(x,f)
+        x1 = x[1]
+        x2 = (1 - x1) * x[2]
+        x3 = 1 - x1 - x2
+        # Cuba samples are [0,1]^n so we
+        # transform to polar coordinates
+        r1 = x[3] / (1 - x[3])  # r ∈ [0, ∞)
+        ϕ1 = 2π * x[4]          # φ ∈ [0, 2π)
+        # Same for k2
+        r2 = x[5] / (1 - x[5])
+        ϕ2 = 2π * x[6]
+        
+        # Reconstruct momenta in polar coordinates
+        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
+        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
 
-            ms_wf = momentum_space_wavefunction(k1, k2, k3, x1, x2, x3; mq=mq, β=β)
-            spin_wf = spin_wavefunction(s0,s1,s2,s3,k1,k2,k3,x1,x2,x3;mq=mq,β=β) 
+        k3 = k1 - k2  # Enforce transverse momentum conservation
+
+        # Jacobian
+        dk1 = 1/(1 - x[3])^2 # r1
+        dk2 = 1/(1 - x[5])^2 # r2
+        dϕ = (2π)^2 # dϕ1 * dϕ2
+        dk = dk1 * dk2
+
+        ms_wf = momentum_space_wavefunction(k1, k2, k3, x1, x2, x3)
+        # Sum over spin contributions
+        total = 0.0
+        for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
+            spin_wf = spin_wavefunction(s0,s1,s2,s3,k1,k2,k3,x1,x2,x3) 
             wf = ms_wf * spin_wf
-            f[1] = abs2(wf) * prod(dk)
+            total += abs2(wf)
         end
-        result, err = cuhre(integrand, 6, 1, atol=1e-8, rtol=1e-6);
-        total += result[1]
+        f[1] =  total * dk * dϕ
     end
-    # Integral is (-∞,+∞) for each k
-    return 1/sqrt(1/(4π)/(2π)^2 * total * 2^4)
+    integral, err = cuhre(integrand, 6, 1, atol=1e-8, rtol=1e-6);
+    # Multiply with prefactors
+    result = 1/(4π)/(2π)^2 * integral[1]
+    # Return norm
+    norm = 1/sqrt(result)
+    return norm
 end
 
-function f1_form_factor(Δ;norm=574.8236114423403,mq=0.26, β=0.55)
+function f1_form_factor(Δ)
     eu, ed = 2/3, -1/3
     charges = (eu,eu,ed)
-    total = 0
-    for (i,q) in enumerate(charges)
-        for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
-            function integrand(x,f)
-                # Cuba samples are [0,1]^n
-                x1 = x[1]
-                x2 = (1 - x1) * x[2]
-                x3 = 1 - x1 - x2
-                # Rescale to correct intervals [0,∞)
-                k1 = [x[j]/(1 - x[j]) for j in 3:4]
-                k2 = [x[j]/(1 - x[j]) for j in 5:6]
+    function integrand(x,f)
+        x1 = x[1]
+        x2 = (1 - x1) * x[2]
+        x3 = 1 - x1 - x2
+        # Cuba samples are [0,1]^n so we
+        # transform to polar coordinates
+        r1 = x[3] / (1 - x[3])  # r ∈ [0, ∞)
+        ϕ1 = 2π * x[4]          # φ ∈ [0, 2π)
+        # Same for k2
+        r2 = x[5] / (1 - x[5])
+        ϕ2 = 2π * x[6]
         
-                k3 = k1 - k2  # Enforce transverse momentum conservation
+        # Reconstruct momenta in polar coordinates
+        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
+        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
 
-                k1prime = k1 - x1 * Δ + kronecker_delta(i,1) * Δ
-                k2prime = k2 - x2 * Δ + kronecker_delta(i,2) * Δ
-                k3prime = k3 - x3 * Δ + kronecker_delta(i,3) * Δ
+        k3 = k1 - k2  # Enforce transverse momentum conservation
 
-                # Parton x is not transformed, but k_perp is
-                dk = [1/(1 - x[j])^2 for j in 3:6]
+        # Jacobian
+        dk1 = 1/(1 - x[3])^2 # r1
+        dk2 = 1/(1 - x[5])^2 # r2
+        dϕ = (2π)^2 # dϕ1 * dϕ2
+        dk = dk1 * dk2
+
+        total = 0
+        # Sum over charge contributions
+        for (i,q) in enumerate(charges)
+        k1prime = k1 - x1 * Δ + kronecker_delta(i,1) * Δ
+        k2prime = k2 - x2 * Δ + kronecker_delta(i,2) * Δ
+        k3prime = k3 - x3 * Δ + kronecker_delta(i,3) * Δ
+            # Sum over spin contributions
+            for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
                 # Both wave functions have spin up
-                wf1 = baryon_wave_function(1,s1,s2,s3,k1,k2,k3,x1,x2,x3;norm=norm,mq=mq,β=β)
-                wf2 = baryon_wave_function(1,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3;norm=norm,mq=mq,β=β)
-
-                f[1] = real(q * conj(wf2) * wf1 * prod(dk))
+                wf1 = baryon_wavefunction(1,s1,s2,s3,k1,k2,k3,x1,x2,x3)
+                wf2 = baryon_wavefunction(1,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
+                total += q * conj(wf2) * wf1
             end
-            result, err = cuhre(integrand, 6, 1, atol=1e-12, rtol=1e-10);
-            # result, err = vegas(integrand, 6, 1, maxevals=1_000_000, nvec=1_000);
-            total += result[1]
         end
+
+        f[1] = real(total * dk * dϕ)
     end
-    # Integral is (-∞,+∞) for each k
-    return 3 / (4π) / (2π)^2 * total * 2^4
+    integral, err = cuhre(integrand, 6, 1, atol=1e-12, rtol=1e-10);
+    result =  3 / (4π) / (2π)^2 * integral[1]
+    return result
 end
 
 function f1_form_factor_table(Δ_array)
@@ -166,7 +214,8 @@ function f1_form_factor_table(Δ_array)
     return results
 end
 
-function cubic_color_corellator(s01,s02,q1,q2,q3;norm=574.8236114423403,mq=0.26, β=0.55)
+function cubic_color_corellator(s01,s02,q1,q2,q3)
+
     # Essentially as in f1_form_factor but with different kinematics
     # placeholder for dabc
     dabc = 1
@@ -199,8 +248,8 @@ function cubic_color_corellator(s01,s02,q1,q2,q3;norm=574.8236114423403,mq=0.26,
                 # Parton x is not transformed, but k_perp is
                 dk = [1/(1 - x[j])^2 for j in 3:6]
                 # Both wave functions have spin up
-                wf1 = baryon_wave_function(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3;norm=norm,mq=mq,β=β)
-                wf2 = baryon_wave_function(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3;norm=norm,mq=mq,β=β)
+                wf1 = baryon_wavefunction(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3)
+                wf2 = baryon_wavefunction(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x)
 
                 f[1] = real(conj(wf2) * wf1 * prod(dk))
             end
@@ -302,8 +351,8 @@ function gluon_sivers_direct(k_perp)
                 k2prime = k2 - x2 * Δ - delta_terms
                 k3prime = k3 - x3 * Δ - delta_terms
                 
-                wf1 = baryon_wave_function(s01, s1, s2, s3, k1, k2, k3, x1, x2, x3)
-                wf2 = baryon_wave_function(s02, s1, s2, s3, k1prime, k2prime, k3prime, x1, x2, x3)
+                wf1 = baryon_wavefunction(s01, s1, s2, s3, k1, k2, k3, x1, x2, x3)
+                wf2 = baryon_wavefunction(s02, s1, s2, s3, k1prime, k2prime, k3prime, x1, x2, x3)
                 ccc = real(conj(wf2) * wf1 * prod(dk))
 
                 # three gluon three_gluon_amplitude
