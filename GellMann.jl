@@ -69,8 +69,10 @@ function sun_symbols(gens)
             for c in 1:dim
                 comm = gens[b]*gens[c] - gens[c]*gens[b]
                 anticomm = gens[b]*gens[c] + gens[c]*gens[b]
+                # These relations are valid for tr(t^a t^b) = delta^{ab} / 2
+                # and choice of anomaly coefficient A = 1 for SU(3)
                 fabc[a,b,c] = -2im * (tr(gens[a]*comm))
-                dabc[a,b,c] = 0.5 * tr(gens[a]*anticomm)
+                dabc[a,b,c] = 2 * tr(gens[a]*anticomm)
             end
         end
     end
