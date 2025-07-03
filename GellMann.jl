@@ -44,7 +44,7 @@ function gell_mann(n::Int)
         push!(gens, mat)
     end
 
-    # Normalize
+    # Normalize tr(t^a t^b) = δ^{ab} / 2 
     gens = [ (1/2)*T for T in gens ]
 
     return gens
