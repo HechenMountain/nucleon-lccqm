@@ -20,7 +20,8 @@ using .parameters: params
 
 export  SPIN_MAP,kronecker_delta,
         momentum_space_wavefunction, spin_wavefunction,
-        baryon_wavefunction, f1_form_factor, f1_form_factor_table
+        baryon_wavefunction, f1_form_factor, f1_form_factor_table,
+        cubic_color_corellator, gluon_sivers
 
 # All possible proton and constituent quark spin configurations
 # Eq.(22) and (23) in the draft
@@ -177,7 +178,7 @@ function normalize_wavefunction(s0::Integer)
         k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
         k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
 
-        k3 = k1 - k2  # Enforce transverse momentum conservation
+        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
 
         # Jacobian
         dk1 = r1/(1 - x[3])^2 # r1
@@ -237,7 +238,7 @@ function f1_form_factor(Δ::Vector{<:Real})
         k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
         k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
 
-        k3 = k1 - k2  # Enforce transverse momentum conservation
+        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
 
         # Jacobian
         dk1 = r1/(1 - x[3])^2 # r1
@@ -308,7 +309,7 @@ end
 #                 k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
 #                 k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
 
-#                 k3 = k1 - k2  # Enforce transverse momentum conservation
+#                 k3 = - (k1 + k2)  # Enforce transverse momentum conservation
 
 #                 # Jacobian
 #                 dk1 = r1/(1 - x[3])^2 # r1
@@ -369,6 +370,247 @@ function f1_form_factor_table(Δ_array::Array)
     end
 
     return results
+end
+
+# Define at top level to avoid recomputation
+# SU(3) Gell-Mann matrices
+gens = gell_mann(3)
+# Symbols
+fabc, dabc = sun_symbols(gens)
+# tr(t^a t^b t^c)
+trt3abc = .25 * (dabc + im * fabc)
+
+dabc_trt3abc = 0
+for a in 1:8, b in 1:8, c in 1:8
+    dabc_trt3abc += dabc[a,b,c] * trt3abc[a,b,c]
+end
+
+# One term is switched in two-body contribution
+# Though when contracted with dabc the result is the same
+# Check this explicitly
+dabc_trt3acb = 0
+for a in 1:8, b in 1:8, c in 1:8
+    dabc_trt3acb += dabc[a,b,c] * trt3abc[a,c,b]
+end
+
+dabc_dabc = 0
+for a in 1:8, b in 1:8, c in 1:8
+    dabc_dabc += dabc[a,b,c] * dabc[a,b,c]
+end
+
+"""
+    cubic_color_corellator(s01,s02,q1,q2,q3,x)
+
+Compute the unintegrated cubic color corellator by summing one-, two-,
+and three-body contributions.
+# Arguments
+- `s01,s02::Integer`: Spins of the external protons
+    - Must be either +1 or -1
+- 'q1,q2,q3::Vector{<:Real}': Transverse momentum transfers
+    - 2d real vectors
+- 'x::Vector{<:Real}': [0,1]^6 cuba samples parametrizing k_perp integration
+    - 6d real vectors with entries in [0,1]
+
+# Returns
+Value of the cubic color corellator for the given spin configuration and kinematics
+
+# Notes
+The contraction with d^{abc} from the Sivers
+function is contained in this expression such that the result is obtained from
+one single cuhre call.
+
+# To do
+Prefactors need to be checked, kinematics should be ok.
+"""
+function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2::Vector{<:Real},q3::Vector{<:Real},x::Vector{<:Real})
+    # We define the kinematics here, the rest is equivalent
+    # the factor of dabc from the sivers function is contained
+    # in this expression to optimize the calls
+    function one_body_kin(i,j123)
+        # Momentum inflow [q1 + q2 + q3] at j123
+        # i is k_prime (quark) index, j123 quark line with 
+        # momentum inflow q1 + q2 + q3 from gluon.
+        kin =  kronecker_delta(i, j123) * (q1 + q2 + q3)
+        return kin
+    end
+
+    function two_body_kin(i,j12,j3,k)
+        # Momentum inflow [q1 + q2,j12] [q3,j3] at j12 and j3
+        # i is k_prime (quark) index, j12, j3 quark line with
+        # momentum inflow q1 + q2 and q3 from gluon.
+        # Addtional terms from permutations, so in total 3 contributions
+        # which we distinguish by k
+        if k == 1
+            kin =  kronecker_delta(i, j12) * (q1 + q2) - kronecker_delta(i, j3) * q3
+        elseif k == 2
+            kin =  kronecker_delta(i, j12) * (q1 + q3) - kronecker_delta(i, j3) * q2
+        elseif k == 3
+            kin =  kronecker_delta(i, j12) * (q2 + q3) - kronecker_delta(i, j3) * q1
+        end
+        return kin
+    end
+
+    function three_body_kin(i,j1,j2,j3)
+        # Momentum inflow [q1,j1] [q2,j2] [q3,j3]
+        # i is k_prime (quark) index, j1, j2, j3 are gluons with momenta
+        # q1, q2 and q3, respectively, attached to quark lines.
+        kin =  kronecker_delta(i, j1) * q1 - kronecker_delta(i, j2) * q2 - kronecker_delta(i, j3) * q3
+        return kin
+    end
+    # Essentially as in f1_form_factor but with different kinematics.
+    # We return just the integrand such that
+    # cuhre is only called once in the end.
+
+    # Δ determined from overall momentum conservation
+    Δ = - (q1 + q2 + q3)
+
+    # Cuba samples are [0,1]^n
+    x1 = x[1]
+    x2 = (1 - x1) * x[2]
+    x3 = 1 - x1 - x2
+    # Transform to polar coordinates for k1
+    r1 = x[3] / (1 - x[3])  # r ∈ [0, ∞)
+    ϕ1 = 2π * x[4]          # φ ∈ [0, 2π)
+    # Same for k2
+    r2 = x[5] / (1 - x[5])
+    ϕ2 = 2π * x[6]
+    
+    # Reconstruct momenta in polar coordinates
+    k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
+    k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+
+    k3 = -(k1 + k2)  # Enforce transverse momentum conservation
+
+    # Jacobian
+    dk1 = r1/(1 - x[3])^2 # r1
+    dk2 = r2/(1 - x[5])^2 # r2
+    dϕ = (2π)^2 # dϕ1 * dϕ2
+    dk = dk1 * dk2
+
+    # Sum over one-body, two-body and three-body kinematics
+    total = 0
+    # One-body
+    tr_term = dabc_trt3abc
+    for j123 in 1:3
+        k1prime = k1 - x1 * Δ - one_body_kin(1,j123)
+        k2prime = k2 - x2 * Δ - one_body_kin(2,j123)
+        k3prime = k3 - x3 * Δ - one_body_kin(3,j123)
+
+        # Sum over spins
+        for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
+            wf1 = baryon_wavefunction(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3)
+            wf2 = baryon_wavefunction(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
+            total += tr_term * conj(wf2) * wf1
+        end
+    end
+    # Two-body
+    # Addtional terms from permutations, so we have an extra sum over k
+    for k in 1:3, j12 in 1:3, j3 in 1:3
+        if j12 == j3
+            continue
+        end
+        if k == 1 || k == 2
+            tr_term = dabc_trt3abc
+        else
+            tr_term = dabc_trt3acb
+        end
+        k1prime = k1 - x1 * Δ - two_body_kin(1,j12,j3,k)
+        k2prime = k2 - x2 * Δ - two_body_kin(2,j12,j3,k)
+        k3prime = k3 - x3 * Δ - two_body_kin(3,j12,j3,k)
+
+        # Sum over spins
+        for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
+            wf1 = baryon_wavefunction(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3)
+            wf2 = baryon_wavefunction(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
+            total += tr_term * conj(wf2) * wf1
+        end
+    end
+    # Three-body
+    tr_term = dabc_dabc
+    for j1 in 1:3, j2 in 1:3, j3 in 1:3
+        if j1 == j2 || j1 == j3 || j2 == j3
+            continue
+        end
+
+        k1prime = k1 - x1 * Δ - three_body_kin(1,j1,j2,j3)
+        k2prime = k2 - x2 * Δ - three_body_kin(2,j1,j2,j3)
+        k3prime = k3 - x3 * Δ - three_body_kin(3,j1,j2,j3)
+
+        # Sum over spins
+        for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
+            wf1 = baryon_wavefunction(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3)
+            wf2 = baryon_wavefunction(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
+            total += tr_term * conj(wf2) * wf1
+        end
+    end
+
+
+    result = total * dk * dϕ
+    
+    return result
+end
+
+"""
+    gluon_sivers(k)
+
+Compute the gluon Sivers function for momentum transfer k
+# Arguments
+- `k::Vector{<:Real}`: Momentum transfer
+    - 2d real vector
+
+# Returns
+Value of the gluon Sivers function at k
+
+# Notes
+alpha_s needs to be fixed
+
+# To do
+Prefactors need to be checked, kinematics should be ok.
+"""
+function gluon_sivers(k::Vector{<:Real})
+    # Spin flip
+    s01 = 1
+    s02 = -1
+
+    function integrand(x,f)
+        # 6d input cubic_color_corellator
+        x6 = x[1:6]
+        # 2d input for q2 integral
+        x2 = x[7:8]
+        # Cuba samples are [0,1]^n so we
+        # transform to polar coordinates
+        r2 = x2[1] / (1 - x2[1])  # r ∈ [0, ∞)
+        ϕ2 = 2π * x2[2]          # φ ∈ [0, 2π)
+        
+        # Reconstruct momentum in polar coordinates
+        q2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+
+        # Jacobian
+        dq2 = r2 / (1 - x2[1])^2
+        dϕ = (2π)
+        # Denominator
+        den1 = 1 / q2.^2 * 1 / (2π)^2
+        # Sum over s = ±1
+        total = 0
+        for s in (-1, 1)
+            q1 = s .* k
+            q3 = - s * k - q2
+            ccc_integrand = cubic_color_corellator(s01,s02,q1,q2,q3,x6)
+            mom = s * k + q2
+            den2 = s / mom.^2
+            total += ccc_integrand * den2 
+        end
+        f[1] = den1 * total
+    end
+    integral, err = cuhre(integrand, 8, 1, atol=1e-12, rtol=1e-10);
+    # Prefactors 
+    mN = 0.93827
+    prf = 1/(8π^3) * mN
+    # Note 1/k^2 drops out
+    # But there is factors of g left that we need to fix
+    # explicitly we have 2 alpha_s^2/ π
+    result = prf * integral[1]
+    return result
 end
 
 end # module
