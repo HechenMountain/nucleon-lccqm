@@ -11,8 +11,13 @@ This code is intended for use in a jupyter notebook but it should also work in a
 
 ## 🛠 Installation
 Just download the repo and include the paths to the module(s) in a jupyter notebook. E.g.
-include("/home/.../sivers.jl")
-include("/home/.../GellMann.jl")
+- include("/home/.../sivers.jl")
+- include("/home/.../GellMann.jl")
+
+and then in a jupyter cell
+
+- using .Sivers
+- using .GellMann
 
 ## ⚙️ Configuration
 Adjust model parameters in parameters.jl to try different parameter sets.
