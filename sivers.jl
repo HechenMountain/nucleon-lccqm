@@ -27,6 +27,10 @@ export  SPIN_MAP,kronecker_delta, normalize_wavefunction,
         baryon_wavefunction, f1_form_factor, f1_form_factor_table,
         cubic_color_corellator, gluon_sivers
 
+# SU(Nc) algebra, Nc set in parameters.jl
+Nc = params.Nc
+dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc 
+
 # All possible proton and constituent quark spin configurations
 # Eq.(22) and (23) in the draft
 # Maps spin tuple with externally assigned 
@@ -202,10 +206,10 @@ function normalize_wavefunction(s0::Integer)
         f[1] =  total * dk * dϕ * dx
     end
     integral, err = cuhre(integrand, 6, 1, atol=1e-8, rtol=1e-6);
-    # Multiply with prefactors
-    result = 1/(4π)/(2π)^2 * integral[1]
+    # Multiply with prefactors from integration
+    result = 1 / (4π)^2 / (2π)^4 * integral[1]
     # Return norm
-    norm = 1/sqrt(result)
+    norm = 1 / sqrt(result)
     return norm
 end
 
@@ -273,7 +277,8 @@ function f1_form_factor(Δ::Vector{<:Real})
         f[1] = real(res)
     end
     integral, err = cuhre(integrand, 6, 1, atol=1e-12, rtol=1e-10);
-    result =  3 / (4π) / (2π)^2 * integral[1]
+    # Multiply with prefactors from integration
+    result =  3 / (4π)^2 / (2π)^4 * integral[1]
     return result
 end
 
@@ -379,32 +384,6 @@ function f1_form_factor_table(Δ_array::Array)
     return results
 end
 
-# Define at top level to avoid recomputation
-# SU(3) Gell-Mann matrices
-gens = gell_mann(3)
-# Symbols
-fabc, dabc = sun_symbols(gens)
-# tr(t^a t^b t^c)
-trt3abc = .25 * (dabc + im * fabc)
-
-dabc_trt3abc = 0
-for a in 1:8, b in 1:8, c in 1:8
-    global dabc_trt3abc += dabc[a,b,c] * trt3abc[a,b,c]
-end
-
-# One term is switched in two-body contribution
-# Though when contracted with dabc the result is the same
-# Check this explicitly
-dabc_trt3acb = 0
-for a in 1:8, b in 1:8, c in 1:8
-    global dabc_trt3acb += dabc[a,b,c] * trt3abc[a,c,b]
-end
-
-dabc_dabc = 0
-for a in 1:8, b in 1:8, c in 1:8
-    global dabc_dabc += dabc[a,b,c] * dabc[a,b,c]
-end
-
 """
     cubic_color_corellator(s01,s02,q1,q2,q3,x)
 
@@ -420,11 +399,6 @@ and three-body contributions.
 
 # Returns
 Value of the cubic color corellator for the given spin configuration and kinematics
-
-# Notes
-The contraction with d^{abc} from the Sivers
-function is contained in this expression such that the result is obtained from
-one single cuhre call.
 
 # To do
 Prefactors need to be checked, kinematics should be ok.
@@ -497,8 +471,8 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
 
     # Sum over one-body, two-body and three-body kinematics
     total = 0
+
     # One-body
-    tr_term = dabc_trt3abc
     for j123 in 1:3
         k1prime = k1 - x1 * Δ - one_body_kin(1,j123)
         k2prime = k2 - x2 * Δ - one_body_kin(2,j123)
@@ -508,7 +482,7 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
         for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
             wf1 = baryon_wavefunction(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3)
             wf2 = baryon_wavefunction(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
-            total += tr_term * conj(wf2) * wf1
+            total += conj(wf2) * wf1
         end
     end
     # Two-body
@@ -516,11 +490,6 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
     for k in 1:3, j12 in 1:3, j3 in 1:3
         if j12 == j3
             continue
-        end
-        if k == 1 || k == 2
-            tr_term = dabc_trt3abc
-        else
-            tr_term = dabc_trt3acb
         end
         k1prime = k1 - x1 * Δ - two_body_kin(1,j12,j3,k)
         k2prime = k2 - x2 * Δ - two_body_kin(2,j12,j3,k)
@@ -530,11 +499,10 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
         for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
             wf1 = baryon_wavefunction(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3)
             wf2 = baryon_wavefunction(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
-            total += tr_term * conj(wf2) * wf1
+            total += conj(wf2) * wf1
         end
     end
     # Three-body
-    tr_term = dabc_dabc
     for j1 in 1:3, j2 in 1:3, j3 in 1:3
         if j1 == j2 || j1 == j3 || j2 == j3
             continue
@@ -548,12 +516,13 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
         for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
             wf1 = baryon_wavefunction(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3)
             wf2 = baryon_wavefunction(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
-            total += tr_term * conj(wf2) * wf1
+            total += conj(wf2) * wf1
         end
     end
 
-
     result = total * dk * dϕ * dx
+    # Multiply with prefactors from integration
+    result *= 1 / (4π)^2 / (2π)^2
     
     return result
 end
@@ -606,12 +575,12 @@ function gluon_sivers(k::Vector{<:Real})
         ccc_integrand = cubic_color_corellator(s01,s02,q1,q2,q3,x6)
 
         integrand = den1 * den2  * ccc_integrand
-        f[1] = real(integrand * dq2 * dϕ / (2π)^2)
+        f[1] = real(integrand * dq2 * dϕ)
     end
     integral, err = cuhre(integrand, 8, 1, atol=1e-12, rtol=1e-10);
     # Prefactors 
     mN = 0.93827
-    prf = 1/(8π^3) * mN
+    prf = 1/(8π^3) * mN * .25 * dabc2 / (2π)^2
     # Note 1/k^2 drops out
     # But there is factors of g left that we need to fix
     # explicitly we have 2 alpha_s^2/ π
