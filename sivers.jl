@@ -18,7 +18,11 @@ const atomic_add! = Base.Threads.atomic_add!
 include("/mnt/c/Users/flori/Documents/PostDoc/Jupyter/Julia/sivers/parameters.jl")
 using .parameters: params
 
-export  SPIN_MAP,kronecker_delta,
+# Color algebra
+include("/mnt/c/Users/flori/Documents/PostDoc/Jupyter/Julia/sivers/GellMann.jl")
+using .GellMann
+
+export  SPIN_MAP,kronecker_delta, normalize_wavefunction,
         momentum_space_wavefunction, spin_wavefunction,
         baryon_wavefunction, f1_form_factor, f1_form_factor_table,
         cubic_color_corellator, gluon_sivers
@@ -166,6 +170,7 @@ function normalize_wavefunction(s0::Integer)
         x1 = x[1]
         x2 = (1 - x1) * x[2]
         x3 = 1 - x1 - x2
+        dx = (1-x1)
         # Cuba samples are [0,1]^n so we
         # transform to polar coordinates
         r1 = x[3] / (1 - x[3])  # r ∈ [0, ∞)
@@ -194,7 +199,7 @@ function normalize_wavefunction(s0::Integer)
             wf = ms_wf * spin_wf
             total += abs2(wf)
         end
-        f[1] =  total * dk * dϕ
+        f[1] =  total * dk * dϕ * dx
     end
     integral, err = cuhre(integrand, 6, 1, atol=1e-8, rtol=1e-6);
     # Multiply with prefactors
@@ -226,6 +231,7 @@ function f1_form_factor(Δ::Vector{<:Real})
         x1 = x[1]
         x2 = (1 - x1) * x[2]
         x3 = 1 - x1 - x2
+        dx = (1-x1)
         # Cuba samples are [0,1]^n so we
         # transform to polar coordinates
         r1 = x[3] / (1 - x[3])  # r ∈ [0, ∞)
@@ -260,7 +266,7 @@ function f1_form_factor(Δ::Vector{<:Real})
                 total += q * conj(wf2) * wf1
             end
         end
-        res = total * dk * dϕ
+        res = total * dk * dϕ * dx
         # if abs(imag(res)) > 1e-10
         #     error("Imaginary part in integrand: imag = $(imag(res))")
         # end
@@ -297,6 +303,7 @@ end
 #                 x1 = x[1]
 #                 x2 = (1 - x1) * x[2]
 #                 x3 = 1 - x1 - x2
+#                 dx = (1-x1)
 #                 # Cuba samples are [0,1]^n so we
 #                 # transform to polar coordinates
 #                 r1 = x[3] / (1 - x[3])  # r ∈ [0, ∞)
@@ -325,7 +332,7 @@ end
 #                 wf1 = baryon_wavefunction(1,s1,s2,s3,k1,k2,k3,x1,x2,x3)
 #                 wf2 = baryon_wavefunction(1,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
                
-#                 res = q * conj(wf2) * wf1 * dk * dϕ
+#                 res = q * conj(wf2) * wf1 * dk * dϕ * dx
 #                 # if abs(imag(res)) > 1e-10
 #                 #     error("Imaginary part in integrand: imag = $(imag(res))")
 #                 # end
@@ -382,7 +389,7 @@ trt3abc = .25 * (dabc + im * fabc)
 
 dabc_trt3abc = 0
 for a in 1:8, b in 1:8, c in 1:8
-    dabc_trt3abc += dabc[a,b,c] * trt3abc[a,b,c]
+    global dabc_trt3abc += dabc[a,b,c] * trt3abc[a,b,c]
 end
 
 # One term is switched in two-body contribution
@@ -390,12 +397,12 @@ end
 # Check this explicitly
 dabc_trt3acb = 0
 for a in 1:8, b in 1:8, c in 1:8
-    dabc_trt3acb += dabc[a,b,c] * trt3abc[a,c,b]
+    global dabc_trt3acb += dabc[a,b,c] * trt3abc[a,c,b]
 end
 
 dabc_dabc = 0
 for a in 1:8, b in 1:8, c in 1:8
-    dabc_dabc += dabc[a,b,c] * dabc[a,b,c]
+    global dabc_dabc += dabc[a,b,c] * dabc[a,b,c]
 end
 
 """
@@ -468,6 +475,7 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
     x1 = x[1]
     x2 = (1 - x1) * x[2]
     x3 = 1 - x1 - x2
+    dx = (1-x1)
     # Transform to polar coordinates for k1
     r1 = x[3] / (1 - x[3])  # r ∈ [0, ∞)
     ϕ1 = 2π * x[4]          # φ ∈ [0, 2π)
@@ -545,7 +553,7 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
     end
 
 
-    result = total * dk * dϕ
+    result = total * dk * dϕ * dx
     
     return result
 end
