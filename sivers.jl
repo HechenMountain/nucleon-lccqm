@@ -447,12 +447,12 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
         # momentum inflow q1 + q2 and q3 from gluon.
         # Addtional terms from permutations, so in total 3 contributions
         # which we distinguish by k
-        if k == 1
-            kin =  kronecker_delta(i, j12) * (q1 + q2) - kronecker_delta(i, j3) * q3
-        elseif k == 2
-            kin =  kronecker_delta(i, j12) * (q1 + q3) - kronecker_delta(i, j3) * q2
-        elseif k == 3
-            kin =  kronecker_delta(i, j12) * (q2 + q3) - kronecker_delta(i, j3) * q1
+        if k == 1 # [q1 + q2,j12] [q3,j3]
+            kin =  kronecker_delta(i, j12) * (q1 + q2) + kronecker_delta(i, j3) * q3
+        elseif k == 2 # [q1 + q3,j12] [q2,j3]
+            kin =  kronecker_delta(i, j12) * (q1 + q3) + kronecker_delta(i, j3) * q2
+        elseif k == 3 # [q2 + q3,j12] [q1,j3]
+            kin =  kronecker_delta(i, j12) * (q2 + q3) + kronecker_delta(i, j3) * q1
         end
         return kin
     end
@@ -461,7 +461,7 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
         # Momentum inflow [q1,j1] [q2,j2] [q3,j3]
         # i is k_prime (quark) index, j1, j2, j3 are gluons with momenta
         # q1, q2 and q3, respectively, attached to quark lines.
-        kin =  kronecker_delta(i, j1) * q1 - kronecker_delta(i, j2) * q2 - kronecker_delta(i, j3) * q3
+        kin = kronecker_delta(i, j1) * q1 + kronecker_delta(i, j2) * q2 + kronecker_delta(i, j3) * q3
         return kin
     end
     # Essentially as in f1_form_factor but with different kinematics.
@@ -596,19 +596,17 @@ function gluon_sivers(k::Vector{<:Real})
         # Jacobian
         dq2 = r2 / (1 - x2[1])^2
         dϕ = (2π)
-        # Denominator
-        den1 = 1 / q2.^2 * 1 / (2π)^2
-        # Sum over s = ±1
-        total = 0
-        for s in (-1, 1)
-            q1 = s .* k
-            q3 = - s * k - q2
-            ccc_integrand = cubic_color_corellator(s01,s02,q1,q2,q3,x6)
-            mom = s * k + q2
-            den2 = s / mom.^2
-            total += ccc_integrand * den2 
-        end
-        f[1] = den1 * total
+        # Denominators
+        den1 = 1 / sum(q2 .^ 2)
+        mom = k + q2
+        den2 = 1 / sum(mom .^ 2)
+
+        q1 = k
+        q3 = - k - q2
+        ccc_integrand = cubic_color_corellator(s01,s02,q1,q2,q3,x6)
+
+        integrand = den1 * den2  * ccc_integrand
+        f[1] = real(integrand * dq2 * dϕ / (2π)^2)
     end
     integral, err = cuhre(integrand, 8, 1, atol=1e-12, rtol=1e-10);
     # Prefactors 
