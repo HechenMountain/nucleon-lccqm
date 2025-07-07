@@ -27,9 +27,11 @@ export  SPIN_MAP,kronecker_delta, normalize_wavefunction,
         baryon_wavefunction, f1_form_factor, f1_form_factor_table,
         cubic_color_corellator, gluon_sivers
 
-# SU(Nc) algebra, Nc set in parameters.jl
+# SU(Nc) algebra, alpha_s and Nc set in parameters.jl
+alpha_s = params.alpha_s
 Nc = params.Nc
 dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc 
+
 
 # All possible proton and constituent quark spin configurations
 # Eq.(22) and (23) in the draft
@@ -499,7 +501,7 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
         for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
             wf1 = baryon_wavefunction(s01,s1,s2,s3,k1,k2,k3,x1,x2,x3)
             wf2 = baryon_wavefunction(s02,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
-            total += conj(wf2) * wf1
+            total += .5 * conj(wf2) * wf1
         end
     end
     # Three-body
@@ -528,27 +530,25 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
 end
 
 """
-    gluon_sivers(k)
+    odderon_distribution(k,Δ)
 
-Compute the gluon Sivers function for momentum transfer k
+Compute the Odderon distribution O * k^2 for momentum transfer k and Δ
 # Arguments
-- `k::Vector{<:Real}`: Momentum transfer
+- `k::Vector{<:Real}`: Transverse momentum transfer
+    - 2d real vector
+- `Δ::Vector{<:Real}`: Total momentum transfer
     - 2d real vector
 
 # Returns
-Value of the gluon Sivers function at k
+Value of the the Odderon distribution times k^2 at k and Δ
 
 # Notes
-alpha_s needs to be fixed
+For now this is expression is only valid for Δ = [0,0]
 
 # To do
 Prefactors need to be checked, kinematics should be ok.
 """
-function gluon_sivers(k::Vector{<:Real})
-    # Spin flip
-    s01 = 1
-    s02 = -1
-
+function odderon_distribution(s01::Integer,s02::Integer,k::Vector{<:Real},Δ::Vector{<:Real})
     function integrand(x,f)
         # 6d input cubic_color_corellator
         x6 = x[1:6]
@@ -565,26 +565,61 @@ function gluon_sivers(k::Vector{<:Real})
         # Jacobian
         dq2 = r2 / (1 - x2[1])^2
         dϕ = (2π)
-        # Denominators
-        den1 = 1 / sum(q2 .^ 2)
-        mom = k + q2
-        den2 = 1 / sum(mom .^ 2)
 
-        q1 = k
-        q3 = - k - q2
-        ccc_integrand = cubic_color_corellator(s01,s02,q1,q2,q3,x6)
+        total = 0
+        for s in (+1,-1)
+            q1 = s * k
+            q3 = - s * k - q2
+            # Denominator
+            q12 = sum(q1.^2)
+            q32 = sum(q3.^2)
 
-        integrand = den1 * den2  * ccc_integrand
+            ccc_integrand = cubic_color_corellator(s01,s02,q1,q2,q3,x6)
+            total += ccc_integrand / q12 / q32
+        end
+        if !iszero(Δ)
+            throw(ArgumentError("Implementation currently only for vanishing Δ."))
+        end
+        # Denominator
+        q22 = sum(q2 .^ 2)
+        integrand *= total / q22
         f[1] = real(integrand * dq2 * dϕ)
     end
     integral, err = cuhre(integrand, 8, 1, atol=1e-12, rtol=1e-10);
     # Prefactors 
-    mN = 0.93827
-    prf = 1/(8π^3) * mN * .25 * dabc2 / (2π)^2
-    # Note 1/k^2 drops out
-    # But there is factors of g left that we need to fix
-    # explicitly we have 2 alpha_s^2/ π
+    prf = - 64 * π^3 * alpha_s_s^3 * dabc2 /(32 * Nc)
+    # We return the result up to a factor of k^2
     result = prf * integral[1]
+    return result
+end
+
+"""
+    gluon_sivers(k)
+
+Compute the gluon Sivers function for momentum transfer k
+# Arguments
+- `k::Vector{<:Real}`: Momentum transfer
+    - 2d real vector
+
+# Returns
+Value of the gluon Sivers function at k
+
+# To do
+Prefactors need to be checked, kinematics should be ok.
+"""
+function gluon_sivers(k::Vector{<:Real})
+    # Spin flip
+    s01 = 1
+    s02 = -1
+    # Forward limit
+    Δ = 0
+
+    odderon_dist = odderon_distribution(s01,s02,k,Δ)
+    # Prefactors 
+    mN = 0.93827
+    # 1 / k^2 cancelled with Odderon distribution
+    prf = - mN * Nc / (8π^3 * alpha_s)
+    result = prf * odderon_dist
     return result
 end
 

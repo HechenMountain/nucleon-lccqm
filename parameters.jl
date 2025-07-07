@@ -6,7 +6,8 @@ const params = (
     norm = 21684.60540866631, # Baryon wavefunction norm from normalize_wavefunction(1)
     mq = 0.26, # Constituent quark mass
     β = 0.55, # Baryon wavefunction width
-    Nc = 3 # Number of colors
+    Nc = 3, # Number of colors
+    alpha_s = 1, # g^2 / (4π)
     ) 
 
 # end module
