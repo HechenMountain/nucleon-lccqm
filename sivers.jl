@@ -22,10 +22,11 @@ using .parameters: params
 include("/mnt/c/Users/flori/Documents/PostDoc/Jupyter/Julia/sivers/GellMann.jl")
 using .GellMann
 
-export  SPIN_MAP,kronecker_delta, normalize_wavefunction,
-        momentum_space_wavefunction, spin_wavefunction,
-        baryon_wavefunction, f1_form_factor, f1_form_factor_table,
-        cubic_color_corellator, odderon_distribution, gluon_sivers
+export  f1_form_factor, f1_form_factor_table,
+        cubic_color_corellator, odderon_distribution, gluon_sivers,
+        # SPIN_MAP,kronecker_delta, normalize_wavefunction,
+        # momentum_space_wavefunction, spin_wavefunction,
+        # baryon_wavefunction,precompute_wavefunction, spin_sum
 
 # SU(Nc) algebra, alpha_s and Nc set in parameters.jl
 alpha_s = params.alpha_s
@@ -538,7 +539,7 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
     # Reconstruct momenta in polar coordinates
     k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
     k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
-    k3 = -(k1 + k2)  # Enforce transverse momentum conservation
+    k3 = - (k1 + k2)  # Enforce transverse momentum conservation
 
     # Precompute incoming baryon wavefunction
     wf1 = precompute_wavefunction(s01,k1, k2, k3, x1, x2, x3)
@@ -579,7 +580,7 @@ function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2:
         k3prime = k3prime0 - two_body_kin(3,j12,j3,l)
         wf2 = precompute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
         # Sum outgoing wavefunctions
-        total_wf2 .+= wf2 
+        total_wf2 .-= .5 * wf2 
     end
     # Three-body
     for j1 in 1:3, j2 in 1:3, j3 in 1:3
@@ -653,7 +654,7 @@ function odderon_distribution(s01::Integer,s02::Integer,k::Vector{<:Real},Δ::Ve
             q32 = sum(q3.^2)
 
             ccc_integrand = cubic_color_corellator(s01,s02,q1,q2,q3,x6)
-            total += ccc_integrand / q32
+            total += s * ccc_integrand / q32
         end
         # Denominator
         q22 = sum(q2 .^ 2)
@@ -662,7 +663,7 @@ function odderon_distribution(s01::Integer,s02::Integer,k::Vector{<:Real},Δ::Ve
     end
     integral, err = cuhre(integrand, 8, 1, atol=1e-12, rtol=1e-10);
     # Prefactors 
-    prf = - 2 * π^3 * alpha_s^3 * dabc2 / Nc
+    prf = - 2π^3 * alpha_s^3 * dabc2 / Nc
     # We return the result up to a factor of k^2
     result = prf * integral[1]
     return result
