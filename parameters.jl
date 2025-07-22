@@ -8,6 +8,7 @@ const params = (
     β = 0.55, # Baryon wavefunction width
     Nc = 3, # Number of colors
     alpha_s = 1, # g^2 / (4π)
+    mN = 0.93827
     ) 
 
 # end module

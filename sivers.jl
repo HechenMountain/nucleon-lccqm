@@ -23,14 +23,15 @@ include("/mnt/c/Users/flori/Documents/PostDoc/Jupyter/Julia/sivers/GellMann.jl")
 using .GellMann
 
 export  f1_form_factor, f1_form_factor_table,
-        cubic_color_corellator, odderon_distribution, gluon_sivers,
+        cubic_color_corellator, odderon_distribution, gluon_sivers
         # SPIN_MAP,kronecker_delta, normalize_wavefunction,
         # momentum_space_wavefunction, spin_wavefunction,
         # baryon_wavefunction,precompute_wavefunction, spin_sum
 
-# SU(Nc) algebra, alpha_s and Nc set in parameters.jl
+# Parameters and SU(Nc) algebra set in parameters.jl
 alpha_s = params.alpha_s
 Nc = params.Nc
+mN = params.mN
 dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc 
 
 ###############
@@ -691,8 +692,6 @@ function gluon_sivers(k::Vector{<:Real})
     Δ = 0
 
     odderon_dist = odderon_distribution(s01,s02,k,Δ)
-    # Prefactors 
-    mN = 0.93827
     # 1 / k^2 cancelled with Odderon distribution
     prf = - mN * Nc / (8π^3 * alpha_s)
     result = prf * odderon_dist
