@@ -688,8 +688,8 @@ function gluon_sivers(k::Vector{<:Real})
     # Spin flip
     s01 = 1
     s02 = -1
-    # Forward limit
-    Δ = 0
+    # Zero momentum transfer
+    Δ = [0,0]
 
     odderon_dist = odderon_distribution(s01,s02,k,Δ)
     # 1 / k^2 cancelled with Odderon distribution
