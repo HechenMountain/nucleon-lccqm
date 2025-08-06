@@ -3,7 +3,7 @@ export params
 
 # Add as needed
 const params = (
-    norm = 21684.60540866631, # Baryon wavefunction norm from normalize_wavefunction(1)
+    norm = 23759.637681138014, # Baryon wavefunction norm from normalize_wavefunction(1)
     mq = 0.26, # Constituent quark mass
     β = 0.55, # Baryon wavefunction width
     Nc = 3, # Number of colors

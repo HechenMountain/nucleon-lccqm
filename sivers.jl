@@ -15,24 +15,25 @@ const Atomic = Base.Threads.Atomic
 const atomic_add! = Base.Threads.atomic_add!
 
 # Parameters handled separately
-include("/mnt/c/Users/flori/Documents/PostDoc/Jupyter/Julia/sivers/parameters.jl")
+include("/home/fhechenberger/jupyter/julia/sivers/parameters.jl")
 using .parameters: params
 
 # Color algebra
-include("/mnt/c/Users/flori/Documents/PostDoc/Jupyter/Julia/sivers/GellMann.jl")
+include("/home/fhechenberger/jupyter/julia/sivers/GellMann.jl")
 using .GellMann
 
-export  f1_form_factor, f1_form_factor_table,
-        cubic_color_corellator, odderon_distribution, gluon_sivers
-        # SPIN_MAP,kronecker_delta, normalize_wavefunction,
-        # momentum_space_wavefunction, spin_wavefunction,
-        # baryon_wavefunction,precompute_wavefunction, spin_sum
+export  f1_form_factor, f2_form_factor,
+        cubic_color_corellator, odderon_distribution, gluon_sivers,
+        precompute_wavefunction, spin_sum, normalize_wavefunction,
+        SPIN_MAP,kronecker_delta, normalize_wavefunction,
+        momentum_space_wavefunction, spin_wavefunction,
+        baryon_wavefunction,precompute_wavefunction
 
 # Parameters and SU(Nc) algebra set in parameters.jl
 alpha_s = params.alpha_s
 Nc = params.Nc
 mN = params.mN
-dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc 
+dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc ;
 
 ###############
 ### Helpers ###
@@ -88,7 +89,10 @@ Spin dependence of baryon wavefunction obtained from Clebsch-Gordan coefficients
 # Returns
 Value of spinor wavefunction
 """
-function spin_wavefunction(s0::Integer,s1::Integer,s2::Integer,s3::Integer,k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, x1::Real, x2::Real, x3::Real)
+function spin_wavefunction( s0::Integer,
+                            s1::Integer,s2::Integer,s3::Integer,
+                            k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
+                            x1::Real, x2::Real, x3::Real)
     # Parameters
     mq = params.mq
 
@@ -103,9 +107,9 @@ function spin_wavefunction(s0::Integer,s1::Integer,s2::Integer,s3::Integer,k1::V
     a2 = mq + x2 * m0
     a3 = mq + x3 * m0
 
-    k1L, k1R = complex(k1[1],-k1[2]),complex(k1[1],k1[2])
-    k2L, k2R = complex(k2[1],-k2[2]),complex(k2[1],k2[2])
-    k3L, k3R = complex(k3[1],-k3[2]),complex(k3[1],k3[2])
+    k1L, k1R = complex(k1[1],-k1[2]) / sqrt(2),complex(k1[1],k1[2]) / sqrt(2)
+    k2L, k2R = complex(k2[1],-k2[2]) / sqrt(2),complex(k2[1],k2[2]) / sqrt(2)
+    k3L, k3R = complex(k3[1],-k3[2]) / sqrt(2),complex(k3[1],k3[2]) / sqrt(2)
 
     n1, n2, n3 = k12 + a1^2, k22 + a2^2, k32 + a3^2
     norm = 1/sqrt(6*n1*n2*n3)
@@ -126,7 +130,8 @@ Momentum dependence of baryon wavefunction
 # Returns
 Value of momentum space wavefunction
 """
-function momentum_space_wavefunction(k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, x1::Real, x2::Real, x3::Real)
+function momentum_space_wavefunction(   k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
+                                        x1::Real, x2::Real, x3::Real)
     # Parameters
     mq = params.mq
     β = params.β
@@ -155,7 +160,10 @@ Value of baryon wavefunction
 # Notes
 norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
 """
-function baryon_wavefunction(s0::Integer,s1::Integer,s2::Integer,s3::Integer,k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, x1::Real, x2::Real, x3::Real)
+function baryon_wavefunction(   s0::Integer,
+                                s1::Integer,s2::Integer,s3::Integer,
+                                k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
+                                x1::Real, x2::Real, x3::Real)
     # Parameters
     norm = params.norm
 
@@ -185,7 +193,9 @@ Value of norm of baryon wavefunction. To be set in parameters.jl
 The indices 1 (-1) of the valence quarks are mapped to 1 (2) 
 such that the wavefunction is accessed as e.g. wf[1,2,1]
 """
-function precompute_wavefunction(s::Integer,k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, x1::Real, x2::Real, x3::Real)
+function precompute_wavefunction(   s::Integer,
+                                    k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
+                                    x1::Real, x2::Real, x3::Real)
     # initialize array with 2^3 spin configurations
     wf = Array{ComplexF64}(undef, 2, 2, 2)
     for s1 in (-1,1), s2 in (-1,1), s3 in (-1,1)
@@ -272,7 +282,8 @@ function normalize_wavefunction()
         for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
             spin_wf = spin_wavefunction(1,s1,s2,s3,k1,k2,k3,x1,x2,x3) 
             wf = ms_wf * spin_wf
-            total += abs2(wf)
+            # total += abs2(wf)
+            total += conj(wf) * wf
         end
         f[1] =  total * dk * dϕ * dx
     end
@@ -287,26 +298,24 @@ end
 ####################
 ### Form factors ###
 ####################
-
 """
-    f1_form_factor(Δ)
+    f_form_factor(Δ)
 
-Compute the F1 form factor
+Compute the F-type form factor needed to generate F1 and F2
 # Arguments
 - `Δ::Vector{<:Real}`: Momentum transfer
     - 2d real vector
 
 # Returns
-Value of the F1 form factor for a given momentum transfer
+Value of the F-type form factor for a given momentum transfer
 
 # Notes
 norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
 Spin sums etc. are performed inside integrand, then cuhre is used once.
 """
-function f1_form_factor(Δ::Vector{<:Real})
+function f_form_factor(Δ::Vector{<:Real},s01::Integer,s02::Integer)
     eu, ed = 2/3, -1/3
     charges = (eu,eu,ed)
-    s01, s02 = 1, 1
     function integrand(x,f)
         x1 = x[1]
         x2 = (1 - x1) * x[2]
@@ -344,85 +353,63 @@ function f1_form_factor(Δ::Vector{<:Real})
             total += q * spin_sum(wf1,wf2)
         end
         res = total * dk * dϕ * dx
-        # if abs(imag(res)) > 1e-10
-        #     error("Imaginary part in integrand: imag = $(imag(res))")
-        # end
         f[1] = real(res)
+        f[2] = imag(res)
     end
-    integral, err = cuhre(integrand, 6, 1, atol=1e-12, rtol=1e-10);
-    # Multiply with prefactors from integration
-    result =  3 / (4π)^2 / (2π)^4 * integral[1]
+    # Call cuhre with ncomp=2 to track real and imaginary parts separately
+    integral, err = cuhre(integrand, 6, 2, atol=1e-12, rtol=1e-10);
+    # Reconstruct complex result and
+    # multiply with prefactors from integration
+    result =  3 / (4π)^2 / (2π)^4 * complex(integral[1],integral[2])
+    return result
+end
+"""
+    f1_form_factor(Δ)
+
+Compute the F1 form factor
+# Arguments
+- `Δ::Vector{<:Real}`: Momentum transfer
+    - 2d real vector
+
+# Returns
+Value of the F1 form factor for a given momentum transfer
+
+# Notes
+norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
+Spin sums etc. are performed inside integrand, then cuhre is used once.
+"""
+function f1_form_factor_2(Δ::Vector{<:Real})
+    result = f_form_factor(Δ,1,1)
     return result
 end
 
-# """
-#     f1_form_factor(Δ)
+"""
+    f2_form_factor(Δ)
 
-# Compute the F1 form factor
-# # Arguments
-# `Δ`: Momentum transfer; 2-vector
+Compute the F2 form factor
+# Arguments
+- `Δ::Vector{<:Real}`: Momentum transfer
+    - 2d real vector
 
-# # Returns
-# Value of the F1 form factor for a given momentum transfer
+# Returns
+Value of the F2 form factor for a given momentum transfer
 
-# # Notes
-# norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
-# Spin sums etc. are performed outside integrand, then results from cuhre are summed.
-# """
-# function f1_form_factor(Δ)
-#     eu, ed = 2/3, -1/3
-#     charges = (eu,eu,ed)
-#     result = 0
-#     # Sum over charge contributions
-#     for (i,q) in enumerate(charges)
-#         # Sum over spin contributions
-#         for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
-#             function integrand(x,f)
-#                 x1 = x[1]
-#                 x2 = (1 - x1) * x[2]
-#                 x3 = 1 - x1 - x2
-#                 dx = (1-x1)
-#                 # Cuba samples are [0,1]^n so we
-#                 # transform to polar coordinates
-#                 r1 = x[3] / (1 - x[3])  # r ∈ [0, ∞)
-#                 ϕ1 = 2π * x[4]          # φ ∈ [0, 2π)
-#                 # Same for k2
-#                 r2 = x[5] / (1 - x[5])
-#                 ϕ2 = 2π * x[6]
-                
-#                 # Reconstruct momenta in polar coordinates
-#                 k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
-#                 k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
-
-#                 k3 = - (k1 + k2)  # Enforce transverse momentum conservation
-
-#                 # Jacobian
-#                 dk1 = r1/(1 - x[3])^2 # r1
-#                 dk2 = r2/(1 - x[5])^2 # r2
-#                 dϕ = (2π)^2 # dϕ1 * dϕ2
-#                 dk = dk1 * dk2
-            
-#                 k1prime = k1 - x1 * Δ + kronecker_delta(i,1) * Δ
-#                 k2prime = k2 - x2 * Δ + kronecker_delta(i,2) * Δ
-#                 k3prime = k3 - x3 * Δ + kronecker_delta(i,3) * Δ
-
-#                 # Both wave functions have spin up
-#                 wf1 = baryon_wavefunction(1,s1,s2,s3,k1,k2,k3,x1,x2,x3)
-#                 wf2 = baryon_wavefunction(1,s1,s2,s3,k1prime,k2prime,k3prime,x1,x2,x3)
-               
-#                 res = q * conj(wf2) * wf1 * dk * dϕ * dx
-#                 # if abs(imag(res)) > 1e-10
-#                 #     error("Imaginary part in integrand: imag = $(imag(res))")
-#                 # end
-#                 f[1] = real(res)
-#             end
-#             integral, err = cuhre(integrand, 6, 1, atol=1e-12, rtol=1e-10);
-#             result +=  integral[1]
-#         end
-#     end
-#     result *= 3 / (4π) / (2π)^2
-#     return result
-# end
+# Notes
+norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
+Spin sums etc. are performed inside integrand, then cuhre is used once.
+- Somehow I need a different sign in the notes. Likely due to different
+ΔL, ΔR definition (?)
+"""
+function f2_form_factor(Δ::Vector{<:Real})
+    ΔL, ΔR = complex(Δ[1],-Δ[2]) / sqrt(2), complex(Δ[1],Δ[2]) / sqrt(2)
+    Δ2 = sum(Δ.^2)
+    # Notation in notes reversed: Lambda', Lambda = s02, s01
+    fdu = f_form_factor(Δ,1,-1)
+    fud = f_form_factor(Δ,-1,1)
+    # Somehow this is only real with this combination
+    result = 2 * mN^2 / Δ2 * (ΔL / mN * fdu + ΔR / mN * fud)
+    return result
+end
 
 """
     f1_form_factor_table(Δ_array)
@@ -483,7 +470,9 @@ This is G_3ΛΛ' stripped of the integrals in the draft
 # To do
 Prefactors need to be checked, kinematics should be ok.
 """
-function cubic_color_corellator(s01::Integer,s02::Integer,q1::Vector{<:Real},q2::Vector{<:Real},q3::Vector{<:Real},x::Vector{<:Real})
+function cubic_color_corellator(s01::Integer,s02::Integer,
+                                q1::Vector{<:Real},q2::Vector{<:Real},
+                                q3::Vector{<:Real},x::Vector{<:Real})
     # We define the kinematics here, the rest is equivalent
     # the factor of dabc from the sivers function is contained
     # in this expression to optimize the calls
@@ -626,7 +615,8 @@ factor in the definition of the sivers function.
 # To do
 Prefactors need to be checked, kinematics should be ok.
 """
-function odderon_distribution(s01::Integer,s02::Integer,k::Vector{<:Real},Δ::Vector{<:Real})
+function odderon_distribution(  s01::Integer,s02::Integer,
+                                k::Vector{<:Real},Δ::Vector{<:Real})
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
@@ -661,12 +651,13 @@ function odderon_distribution(s01::Integer,s02::Integer,k::Vector{<:Real},Δ::Ve
         q22 = sum(q2 .^ 2)
         total /= q22
         f[1] = real(total * dq2 * dϕ)
+        f[2] = imag(total * dq2 * dϕ)
     end
-    integral, err = cuhre(integrand, 8, 1, atol=1e-12, rtol=1e-10);
+    integral, err = cuhre(integrand, 8, 2, atol=1e-12, rtol=1e-10);
     # Prefactors 
     prf = - 2π^3 * alpha_s^3 * dabc2 / Nc
     # We return the result up to a factor of k^2
-    result = prf * integral[1]
+    result = prf * complex(integral[1],integral[2])
     return result
 end
 
