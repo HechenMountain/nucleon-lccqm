@@ -27,7 +27,10 @@ export  f1_form_factor, f2_form_factor,
         precompute_wavefunction, spin_sum, normalize_wavefunction,
         SPIN_MAP,kronecker_delta, normalize_wavefunction,
         momentum_space_wavefunction, spin_wavefunction,
-        baryon_wavefunction,precompute_wavefunction
+        baryon_wavefunction,precompute_wavefunction,
+        write_odderon_distribution_to_csv,
+        write_odderon_distribution_2_to_csv, odderon_distribution_2,
+        cubic_color_corellator_2
 
 # Parameters and SU(Nc) algebra set in parameters.jl
 alpha_s = params.alpha_s
@@ -688,5 +691,221 @@ function gluon_sivers(k::Vector{<:Real})
     result = prf * odderon_dist
     return result
 end
+
+"""
+    write_odderon_distribution_to_csv()
+
+Write result of odderon_distribution for |k| in [0,2] GeV
+
+Run over ssh using
+nohup julia -e 'include("sivers.jl"); Sivers.write_odderon_distribution_to_csv(
+)' > log.txt 2>&1 &
+"""
+function write_odderon_distribution_to_csv()
+    open("output.csv", "w") do io
+        println(io, "k,real_part,imag_part")  # header
+        for k in 0:0.1:2
+            val = odderon_distribution(1,-1,[k,0],[0,0])
+            println(io, "$(k),$(real(val)),$(imag(val))")
+            flush(io) 
+        end
+    end
+end
+
+#####################################
+#####################################
+########## Temporary Stuff ##########
+#####################################
+#####################################
+
+# Temporary stuff which will be renamed
+# once we have figured out the correct implementation
+
+function cubic_color_corellator_2(s01::Integer,s02::Integer,
+                                q1::Vector{<:Real},q2::Vector{<:Real},
+                                q3::Vector{<:Real},x::Vector{<:Real},s)
+    # We define the kinematics here, the rest is equivalent
+    # the factor of dabc from the sivers function is contained
+    # in this expression to optimize the calls
+    function one_body_kin(i,j123)
+        # Momentum inflow [q1 + q2 + q3] at j123
+        # i is k_prime (quark) index, j123 quark line with 
+        # momentum inflow q1 + q2 + q3 from gluon.
+        delta_kiprime =  kronecker_delta(i, j123) * (q1 + q2 + q3)
+        return delta_kiprime
+    end
+
+    function two_body_kin(i,j12,j3,l)
+        # Momentum inflow [q1 + q2,j12] [q3,j3] at j12 and j3
+        # i is k_prime (quark) index, j12, j3 quark line with
+        # momentum inflow q1 + q2 and q3 from gluon.
+        # Addtional terms from permutations, so in total 3 contributions
+        # which we distinguish by l
+        if l == 1 # [q2 + q3,j12] [q1,j3]
+            delta_kiprime =  kronecker_delta(i, j12) * (q2 + q3) + kronecker_delta(i, j3) * q1
+        elseif l == 2 # [q1 + q3,j12] [q2,j3]
+            delta_kiprime =  kronecker_delta(i, j12) * (q1 + q3) + kronecker_delta(i, j3) * q2
+        elseif l == 3 # [q1 + q2,j12] [q3,j3]
+            delta_kiprime =  kronecker_delta(i, j12) * (q1 + q2) + kronecker_delta(i, j3) * q3
+        end
+        return delta_kiprime
+    end
+
+    function three_body_kin(i,j1,j2,j3)
+        # Momentum inflow [q1,j1] [q2,j2] [q3,j3]
+        # i is k_prime (quark) index, j1, j2, j3 are gluons with momenta
+        # q1, q2 and q3, respectively, attached to quark lines.
+        delta_kiprime = kronecker_delta(i, j1) * q1 + kronecker_delta(i, j2) * q2 + kronecker_delta(i, j3) * q3
+        return delta_kiprime
+    end
+    # Essentially as in f1_form_factor but with different kinematics.
+    # We return just the integrand such that
+    # cuhre is only called once in the end.
+
+    # Δ determined from overall momentum conservation
+    Δ = - (q1 + q2 + q3)
+
+    # Cuba samples are [0,1]^n
+    x1 = x[1]
+    x2 = (1 - x1) * x[2]
+    x3 = 1 - x1 - x2
+    dx = (1-x1)
+    # Transform to polar coordinates for k1
+    r1 = x[3] / (1 - x[3])  # r ∈ [0, ∞)
+    ϕ1 = 2π * x[4]          # φ ∈ [0, 2π)
+    # Same for k2
+    r2 = x[5] / (1 - x[5])
+    ϕ2 = 2π * x[6]
+    
+    # Reconstruct momenta in polar coordinates
+    k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
+    k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+    k3 = - (k1 + k2)  # Enforce transverse momentum conservation
+
+    # Flip all moment, not only q2
+    k1, k2, k3 = s * k1, s * k2, s * k3
+
+    # Precompute incoming baryon wavefunction
+    wf1 = precompute_wavefunction(s01,k1, k2, k3, x1, x2, x3)
+
+    # Jacobian
+    dk1 = r1/(1 - x[3])^2 # r1
+    dk2 = r2/(1 - x[5])^2 # r2
+    dϕ = (2π)^2 # dϕ1 * dϕ2
+    dk = dk1 * dk2
+
+    # Precompute constant parts
+    k1prime0 = k1 - x1 * Δ 
+    k2prime0 = k2 - x2 * Δ 
+    k3prime0 = k3 - x3 * Δ
+
+    # Initialize outgoing wavefunction array
+    total_wf2 = Array{ComplexF64}(undef, 2, 2, 2)
+    fill!(total_wf2, ComplexF64(0.0, 0.0))
+
+    # Sum over one-body, two-body and three-body kinematics
+    # One-body
+    for j123 in 1:3
+        k1prime = k1prime0 - one_body_kin(1,j123)
+        k2prime = k2prime0 - one_body_kin(2,j123)
+        k3prime = k3prime0 - one_body_kin(3,j123)
+        wf2 = precompute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
+        # Sum outgoing wavefunctions
+        total_wf2 .+= wf2
+    end
+    # Two-body
+    # Addtional terms from permutations, so we have an extra sum over k
+    for l in 1:3, j12 in 1:3, j3 in 1:3
+        if j12 == j3
+            continue
+        end
+        k1prime = k1prime0 - two_body_kin(1,j12,j3,l)
+        k2prime = k2prime0 - two_body_kin(2,j12,j3,l)
+        k3prime = k3prime0 - two_body_kin(3,j12,j3,l)
+        wf2 = precompute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
+        # Sum outgoing wavefunctions
+        total_wf2 .-= .5 * wf2 
+    end
+    # Three-body
+    for j1 in 1:3, j2 in 1:3, j3 in 1:3
+        if j1 == j2 || j1 == j3 || j2 == j3
+            continue
+        end
+        k1prime = k1prime0 - three_body_kin(1,j1,j2,j3)
+        k2prime = k2prime0 - three_body_kin(2,j1,j2,j3)
+        k3prime = k3prime0 - three_body_kin(3,j1,j2,j3)
+        wf2 = precompute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
+        # Sum outgoing wavefunctions
+        total_wf2 .+= wf2
+    end
+    # Perform spin sum once
+    total = spin_sum(wf1,total_wf2)
+    result = total * dk * dϕ * dx
+    # Multiply with prefactors from integration
+    result *= 1 / (4π)^2 / (2π)^2
+    
+    return result
+end
+function odderon_distribution_2(s01::Integer,s02::Integer,
+                                k::Vector{<:Real},Δ::Vector{<:Real})
+    if !iszero(Δ)
+        throw(ArgumentError("Implementation currently only for vanishing Δ."))
+    end
+    function integrand(x,f)
+        # 6d input for cubic_color_corellator
+        x6 = x[1:6]
+        # 2d input for q2 integral
+        x2 = x[7:8]
+        # Cuba samples are [0,1]^n so we
+        # transform to polar coordinates
+        r2 = x2[1] / (1 - x2[1])  # r ∈ [0, ∞)
+        ϕ2 = 2π * x2[2]          # φ ∈ [0, 2π)
+        
+        # Reconstruct momentum in polar coordinates
+        q2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+
+        # Jacobian
+        dq2 = r2 / (1 - x2[1])^2
+        dϕ = (2π)
+
+        total = 0
+        for s in (+1,-1)
+            q1, q2, q3 = s * k, s * q2, - s * (k + q2)  
+            ccc_integrand = cubic_color_corellator_2(s01,s02,q1,q2,q3,x6,s)
+            total += s * ccc_integrand
+        end
+        # Same denominator
+        q3 = k + q2
+        q32 = sum(q3.^2)
+        q22 = sum(q2.^2)
+        den = q22 * q32  
+        total *= dq2 * dϕ / den
+        f[1] = real(total)
+        f[2] = imag(total)
+    end
+    integral, err = cuhre(integrand, 8, 2, atol=1e-12, rtol=1e-10);
+    # integral, err = vegas(integrand, 8, 2, atol=1e-12, rtol=1e-10);
+    # integral, err = suave(integrand, 8, 2, atol=1e-12, rtol=1e-10);
+    # integral, err = divonne(integrand, 8, 2, atol=1e-12, rtol=1e-10);
+    # Prefactors 
+    # prf = - 2π^3 * alpha_s^3 * dabc2 / Nc
+    # For now, factor of g^6 = 1, for simplicity
+    prf = - dabc2 / Nc / 32
+    # We return the result up to a factor of k^2
+    result = prf * complex(integral[1],integral[2])
+    return result
+end
+
+function write_odderon_distribution_2_to_csv()
+    open("output.csv", "w") do io
+        println(io, "k,real_part,imag_part")  # header
+        for k in 0:0.025:2
+            val = odderon_distribution_2(1,-1,[k,0],[0,0])
+            println(io, "$(k),$(real(val)),$(imag(val))")
+            flush(io)
+        end
+    end
+end
+
 
 end # module
