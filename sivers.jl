@@ -721,6 +721,9 @@ end
 # Temporary stuff which will be renamed
 # once we have figured out the correct implementation
 
+# We can enforce the cancellation by just flipping all integration variables
+# This does not happen on its own because we call the whole 8d integral once,
+# instead of one 6d and one 2d integral
 function cubic_color_corellator_2(s01::Integer,s02::Integer,
                                 q1::Vector{<:Real},q2::Vector{<:Real},
                                 q3::Vector{<:Real},x::Vector{<:Real},s)
@@ -846,11 +849,16 @@ function cubic_color_corellator_2(s01::Integer,s02::Integer,
     
     return result
 end
+
 function odderon_distribution_2(s01::Integer,s02::Integer,
-                                k::Vector{<:Real},Δ::Vector{<:Real})
+                                k::Vector{<:Real},Δ::Vector{<:Real},
+                                mu=0.01)
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
+    # Regulator
+    mu2 = mu^2
+    
     function integrand(x,f)
         # 6d input for cubic_color_corellator
         x6 = x[1:6]
@@ -858,7 +866,7 @@ function odderon_distribution_2(s01::Integer,s02::Integer,
         x2 = x[7:8]
         # Cuba samples are [0,1]^n so we
         # transform to polar coordinates
-        r2 = x2[1] / (1 - x2[1])  # r ∈ [0, ∞)
+        r2 = x2[1] / (1 - x2[1]) # r ∈ [0, ∞)
         ϕ2 = 2π * x2[2]          # φ ∈ [0, 2π)
         
         # Reconstruct momentum in polar coordinates
@@ -870,20 +878,29 @@ function odderon_distribution_2(s01::Integer,s02::Integer,
 
         total = 0
         for s in (+1,-1)
+            # Flip momenta to project out Sivers function
             q1, q2, q3 = s * k, s * q2, - s * (k + q2)  
             ccc_integrand = cubic_color_corellator_2(s01,s02,q1,q2,q3,x6,s)
             total += s * ccc_integrand
         end
-        # Same denominator
+        # Regenerate initial q2
+        q2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
         q3 = k + q2
-        q32 = sum(q3.^2)
         q22 = sum(q2.^2)
+        q32 = sum(q3.^2)
+        # Add regulator
+        q22 += mu2
+        q32 += mu2
+        # Same denominator
+        # for both terms once momenta
+        # have been flipped
         den = q22 * q32  
         total *= dq2 * dϕ / den
+
         f[1] = real(total)
         f[2] = imag(total)
     end
-    integral, err = cuhre(integrand, 8, 2, atol=1e-12, rtol=1e-10);
+    integral, err = cuhre(integrand, 8, 2, atol=1e-14, rtol=1e-12);
     # integral, err = vegas(integrand, 8, 2, atol=1e-12, rtol=1e-10);
     # integral, err = suave(integrand, 8, 2, atol=1e-12, rtol=1e-10);
     # integral, err = divonne(integrand, 8, 2, atol=1e-12, rtol=1e-10);
@@ -896,16 +913,36 @@ function odderon_distribution_2(s01::Integer,s02::Integer,
     return result
 end
 
-function write_odderon_distribution_2_to_csv()
-    open("output.csv", "w") do io
+# function write_odderon_distribution_2_to_csv(mu=0.01)
+#     open("output.csv", "w") do io
+#         println(io, "k,real_part,imag_part")  # header
+#         for k in 0:0.025:2
+#             val = odderon_distribution_2(1,-1,[k,0],[0,0],mu)
+#             println(io, "$(k),$(real(val)),$(imag(val))")
+#             flush(io)
+#         end
+#     end
+# end
+
+function write_odderon_distribution_2_to_csv(mu=0.01)
+    # open(rf"output_{mu}.csv", "w") do io
+    open("output_" * string(mu) * ".csv", "w") do io
         println(io, "k,real_part,imag_part")  # header
-        for k in 0:0.025:2
-            val = odderon_distribution_2(1,-1,[k,0],[0,0])
+        for k in 0:0.05:2
+            val = odderon_distribution_2(1,-1,[k,0],[0,0],mu)
             println(io, "$(k),$(real(val)),$(imag(val))")
             flush(io)
         end
     end
 end
+
+function regulator_scan()
+    mu_vals = [0.00,0.01,0.02,0.03,0.04,0.05]
+    for mu in mu_vals
+        write_odderon_distribution_2_to_csv(mu)
+    end
+end
+
 
 
 end # module
