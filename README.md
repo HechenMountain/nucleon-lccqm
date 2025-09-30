@@ -6,7 +6,6 @@ This code is intended for use in a jupyter notebook but it should also work in a
 
 ## 📦 Features
 - Large-x gluon Sivers function
-- General SU(N) algebra implemented in GellMann.jl
 - Different parameter sets can be used and are specifed in parameters.jl
 
 ## 🛠 Installation
