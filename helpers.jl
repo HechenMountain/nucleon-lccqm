@@ -2,7 +2,7 @@ module helpers
 
 export  SPIN_MAP, kronecker_delta,
         spin_index, cuba_to_parton_x, 
-        cuba_to_polar, cuba_to_hyperspherical,
+        cuba_to_polar, cuba_to_hyperspherical
 
 # All possible proton and constituent quark spin configurations
 # Eq.(22) and (23) in the draft

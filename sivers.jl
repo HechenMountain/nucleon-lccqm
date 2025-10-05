@@ -31,7 +31,7 @@ hp = helpers
 export  f1_form_factor, f2_form_factor,
         regulator_scan, f_form_factor,
         cubic_color_correlator, odderon_distribution,
-        compute_wavefunction, hp, spin_sum
+        compute_wavefunction, hp, spin_sum, spin_wavefunction
 
 # export  f1_form_factor, f2_form_factor,
 #         cubic_color_correlator, odderon_distribution, gluon_sivers,
