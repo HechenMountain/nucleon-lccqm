@@ -149,4 +149,29 @@ function cuba_to_hyperspherical(x::Vector{<:Real})
     return r, thetas, jac
 end
 
+"""
+    cartesian_to_polar(vec)
+
+Transform a cartesian input vector 'vec=[v_x,v_y]' to polar coordinates
+'vec_polar=[v_r,v_ϕ]'
+
+# Arguments
+- `vec::Vector{<:Real}`: Cartesian input vector
+
+# Returns
+- `vec_polar::Vector{<:Real}`: Polar output vector
+
+# Notes
+Throws an `ArgumentError` if called with `length(vec) != 2`.
+"""
+function cartesian_to_polar(vec::Vector{<:Real})
+    if length(vec) != 2
+        throw(ArgumentError("Cartesian to polar coordinates requires 2D input."))
+    end
+    x, y = vec
+    r = hypot(x, y)
+    ϕ = atan(y, x)
+    return [r, ϕ]
+end
+
 end # module
