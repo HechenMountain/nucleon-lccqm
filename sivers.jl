@@ -29,6 +29,7 @@ import .helpers
 hp = helpers
 
 export  hp, f1_form_factor, f2_form_factor,
+        normalize_wavefunction,
         regulator_scan, f_form_factor,
         cubic_color_correlator, odderon_distribution,
         compute_wavefunction, spin_sum, spin_wavefunction
@@ -83,9 +84,9 @@ function spin_wavefunction( s0::Integer,
     a2 = mq + x2 * m0
     a3 = mq + x3 * m0
 
-    k1L, k1R = complex(k1[1],-k1[2]) / sqrt(2),complex(k1[1],k1[2]) / sqrt(2)
-    k2L, k2R = complex(k2[1],-k2[2]) / sqrt(2),complex(k2[1],k2[2]) / sqrt(2)
-    k3L, k3R = complex(k3[1],-k3[2]) / sqrt(2),complex(k3[1],k3[2]) / sqrt(2)
+    k1L, k1R = complex(k1[1],-k1[2]) , complex(k1[1],k1[2]) 
+    k2L, k2R = complex(k2[1],-k2[2]) , complex(k2[1],k2[2]) 
+    k3L, k3R = complex(k3[1],-k3[2]) , complex(k3[1],k3[2]) 
 
     n1, n2, n3 = k12 + a1^2, k22 + a2^2, k32 + a3^2
     norm = 1/sqrt(6*n1*n2*n3)
@@ -249,7 +250,7 @@ function normalize_wavefunction()
         end
         f[1] =  total * d4k * dx
     end
-    integral, err = cuhre(integrand, 6, 1, atol=1e-8, rtol=1e-6);
+    integral, err = cuhre(integrand, 6, 1, atol=1e-12, rtol=1e-10);
     # Multiply with prefactors from integration
     result = 1 / (4π)^2 / (2π)^4 * integral[1]
     # Return norm
@@ -352,7 +353,7 @@ Spin sums etc. are performed inside integrand, then cuhre is used once.
 ΔL, ΔR definition (?)
 """
 function f2_form_factor(Δ::Vector{<:Real})
-    ΔL, ΔR = complex(Δ[1],-Δ[2]) / sqrt(2), complex(Δ[1],Δ[2]) / sqrt(2)
+    ΔL, ΔR = complex(Δ[1],-Δ[2]) , complex(Δ[1],Δ[2]) 
     Δ2 = sum(Δ.^2)
     # Notation in notes reversed: Lambda', Lambda = s02, s01
     fdu = f_form_factor(1,-1,Δ)
@@ -680,9 +681,9 @@ function f_form_factor_mc(s01::Integer,s02::Integer,Δ::Vector{<:Real}; neval::I
     return result
 end
 
-function write_f_form_factor(Δ)
-    res = f_form_factor(1,-1,[Δ, 0])
-    open("output_f2.csv", "a") do io
+function write_f_form_factor(s01,s02,Δ)
+    res = f_form_factor(s01,s02,[Δ, 0.00001])
+    open("output_f.csv", "a") do io
         println(io, join([Δ, real(res), imag(res)], ","))
     end
 end
