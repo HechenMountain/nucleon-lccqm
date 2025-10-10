@@ -6,6 +6,8 @@ using LinearAlgebra
 using PyPlot
 using Cuba
 
+using MCIntegration
+
 # Parallelization
 using Base.Threads
 
@@ -32,7 +34,8 @@ export  hp, f1_form_factor, f2_form_factor,
         normalize_wavefunction,
         regulator_scan, f_form_factor,
         cubic_color_correlator, odderon_distribution,
-        compute_wavefunction, spin_sum, spin_wavefunction
+        compute_wavefunction, spin_sum, spin_wavefunction,
+        baryon_wavefunction
 
 # export  f1_form_factor, f2_form_factor,
 #         cubic_color_correlator, odderon_distribution, gluon_sivers,
@@ -43,9 +46,9 @@ export  hp, f1_form_factor, f2_form_factor,
 #         write_odderon_distribution_to_csv, regulator_scan
 
 # Parameters and SU(Nc) algebra set in parameters.jl
-alpha_s = params.alpha_s
-Nc = params.Nc
-mN = params.mN
+alpha_s = params.alpha_s ;
+Nc = params.Nc ;
+mN = params.mN ;
 dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc ;
 
 #####################
@@ -66,6 +69,9 @@ Spin dependence of baryon wavefunction obtained from Clebsch-Gordan coefficients
 
 # Returns
 Value of spinor wavefunction
+
+# Notes
+Momenta should be cartesian.
 """
 function spin_wavefunction( s0::Integer,
                             s1::Integer,s2::Integer,s3::Integer,
@@ -106,6 +112,9 @@ Momentum dependence of baryon wavefunction
 
 # Returns
 Value of momentum space wavefunction
+
+# Notes
+Momenta should be cartesian.
 """
 function momentum_space_wavefunction(   k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
                                         x1::Real, x2::Real, x3::Real)
@@ -135,13 +144,13 @@ Compute product of spinor and momentum space wave function.
 Value of baryon wavefunction
 
 # Notes
-norm is set in parameters.jl and can be obtained from normalize_wavefunction()
+norm is set in parameters.jl and can be obtained from normalize_wavefunction(). 
+Momenta should be cartesian.
 """
 function baryon_wavefunction(   s0::Integer,
                                 s1::Integer,s2::Integer,s3::Integer,
                                 k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
                                 x1::Real, x2::Real, x3::Real)
-    # Parameters
     norm = params.norm
 
     ms_wf =  momentum_space_wavefunction(k1, k2, k3, x1, x2, x3)
@@ -215,7 +224,7 @@ end
 Normalize the baryon wave function with parameters defined in parameters.jl
 
     # Returns
-Value of norm of baryon wavefunction. To be set in parameters.jl
+Value of norm of baryon wavefunction and errors. To be set in parameters.jl
 
 # Notes
 norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0).
@@ -248,14 +257,16 @@ function normalize_wavefunction()
             # total += abs2(wf)
             total += conj(wf) * wf
         end
-        f[1] =  total * d4k * dx
+        result = total * d4k * dx
+        f[1] =  real(result)
+        f[2] =  imag(result)
     end
-    integral, err = cuhre(integrand, 6, 1, atol=1e-12, rtol=1e-10);
+    integral, err = cuhre(integrand, 6, 2; atol=1e-12, rtol=1e-10)
     # Multiply with prefactors from integration
-    result = 1 / (4π)^2 / (2π)^4 * integral[1]
+    result = 1 / (4π)^2 / (2π)^4 * complex(integral[1],integral[2])
     # Return norm
     norm = 1 / sqrt(result)
-    return norm
+    return norm, err
 end
 
 ####################
@@ -308,11 +319,13 @@ function f_form_factor(s01::Integer,s02::Integer,Δ::Vector{<:Real})
         f[2] = imag(res)
     end
     # Call cuhre with ncomp=2 to track real and imaginary parts separately
-    integral, err = cuhre(integrand, 6, 2, atol=1e-12, rtol=1e-10);
+    integral, err = cuhre(integrand, 6, 2; atol=1e-12, rtol=1e-10)
     # Reconstruct complex result and
     # multiply with prefactors from integration
-    result =  3 / (4π)^2 / (2π)^4 * complex(integral[1],integral[2])
-    return result
+    prf = 3 / (4π)^2 / (2π)^4
+    result = prf * complex(integral[1],integral[2])
+    err .*= prf
+    return result, err
 end
 
 """
@@ -331,8 +344,8 @@ norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
 Spin sums etc. are performed inside integrand, then cuhre is used once.
 """
 function f1_form_factor(Δ::Vector{<:Real})
-    result = f_form_factor(1,1,Δ)
-    return result
+    result, err = f_form_factor(1,1,Δ)
+    return result, err
 end
 
 """
@@ -356,11 +369,14 @@ function f2_form_factor(Δ::Vector{<:Real})
     ΔL, ΔR = complex(Δ[1],-Δ[2]) , complex(Δ[1],Δ[2]) 
     Δ2 = sum(Δ.^2)
     # Notation in notes reversed: Lambda', Lambda = s02, s01
-    fdu = f_form_factor(1,-1,Δ)
-    fud = f_form_factor(-1,1,Δ)
+    fdu, err_du = f_form_factor(1,-1,Δ)
+    fud, err_ud = f_form_factor(-1,1,Δ)
     # Somehow I need a + here
-    result = 2 * mN^2 / Δ2 * (ΔL / mN * fdu + ΔR / mN * fud)
-    return result
+    result = 2 * mN^2 / Δ2 * (ΔL / mN * fdu - ΔR / mN * fud)
+    # imaginary part cancels
+    err_re = 2 * mN / sqrt(Δ2) * sqrt(err_du[1]^2 + err_ud[1]^2)
+    err_im = 2 * mN / sqrt(Δ2) * sqrt(err_du[2]^2 + err_ud[2]^2)
+    return result, [err_re,err_im]
 end
 
 """
@@ -516,14 +532,14 @@ Compute the Odderon distribution O * k^2 for momentum transfer k and Δ
 Value of the the Odderon distribution times k^2 at k and Δ.
 
 # Notes
-For now this is expression is only valid for Δ = [0,0].
-Corresponds to OΛΛ'(k,Δ) in the draft.
-We drop the 1 / k^2 since it cancels with the corresponding
-factor in the definition of the sivers function.
-
+-   For now this is expression is only valid for Δ = [0,0].
+    Corresponds to OΛΛ'(k,Δ) in the draft.
+-   We drop the 1 / k^2 since it cancels with the corresponding
+    factor in the definition of the sivers function. 
+-   Momenta should be cartesian.
 """
 function odderon_distribution(  s01::Integer,s02::Integer,
-                                k::Vector{<:Real},Δ::Vector{<:Real},
+                                k::Vector{<:Real},Δ::Vector{<:Real};
                                 mu::Real=0.01)
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
@@ -552,7 +568,7 @@ function odderon_distribution(  s01::Integer,s02::Integer,
         for s in (+1,-1)
             # Flip momenta to project out Sivers function
             q1, q2, q3 = s * k, s * q2, - s * (k + q2)
-            k1, k2, k3 = s * k1, s * k2, s * k3  
+            # k1, k2, k3 = s * k1, s * k2, s * k3  
             ccc = cubic_color_correlator(s01,s02,x1,x2,x3,q1,q2,q3,k1,k2,k3)
             total += s * ccc
         end
@@ -574,14 +590,17 @@ function odderon_distribution(  s01::Integer,s02::Integer,
         f[1] = real(total)
         f[2] = imag(total)
     end
-    integral, err = cuhre(integrand, 8, 2, atol=1e-14, rtol=1e-12);
+    integral, err = cuhre(integrand, 8, 2; atol=1e-12, rtol=1e-10)
     # Prefactors 
     # prf = - 2π^3 * alpha_s^3 * dabc2 / Nc
     # For now, factor of g^6 = 1, for simplicity
-    prf = - dabc2 / Nc / 32
+    prf = - dabc2 / Nc / 32 
+    # π factors from integration
+    prf /= (4π)^2 * (2π)^6
     # We return the result up to a factor of k^2
     result = prf * complex(integral[1],integral[2])
-    return result
+    err .*= abs(prf)
+    return result, err
 end
 
 """
@@ -598,14 +617,14 @@ Value of the gluon Sivers function at k
 # To do
 Prefactors need to be checked, kinematics should be ok.
 """
-function gluon_sivers(k::Vector{<:Real},mu=0.01)
+function gluon_sivers(k::Vector{<:Real};mu::Real=0.01)
     # Spin flip
     s01 = 1
     s02 = -1
     # Zero momentum transfer
     Δ = [0,0]
 
-    odderon_dist = odderon_distribution(s01,s02,k,Δ,mu)
+    odderon_dist = odderon_distribution(s01,s02,k,Δ;mu=mu)
     # 1 / k^2 cancelled with Odderon distribution
     prf = - mN * Nc / (8π^3 * alpha_s)
     result = prf * odderon_dist
@@ -619,24 +638,61 @@ Write result of odderon_distribution for |k| in [0,2] GeV
 
 Run over ssh using e.g.
 nohup julia -e 'include("sivers.jl"); Sivers.write_odderon_distribution_to_csv(
-)' > log.txt 2>&1 &
+mu)' > log.txt 2>&1 &
 """
-function write_odderon_distribution_to_csv(mu)
+function write_odderon_distribution_to_csv(mu::Real)
     # open("output.csv", "w") do io
-    open("output_" * string(mu) * ".csv", "w") do io
-        println(io, "k,real_part,imag_part")  # header
+    # open("output_" * string(mu) * ".csv", "w") do io # m = 0.26 GeV
+    open("output_" * string(mu) * ".csv", "w") do io # m = 0.5 GeV
+    # open("output_m100_" * string(mu) * ".csv", "w") do io # m = 1.0 GeV
+        println(io, "k,val,err_real,err_imag")  # header
         for k in 0:0.1:1
-            val = odderon_distribution(1,-1,[k,0],[0,0],mu)
-            println(io, "$(k),$(real(val)),$(imag(val))")
+            # val = odderon_distribution(1,-1,[k,0],[0,0],mu)
+            # println(io, "$(k),$(real(val)),$(imag(val))")
+            val, err = odderon_distribution(1,-1,[k,0],[0,0];mu)
+            println(io, "$(k),$(val),$(err[1]),$(err[2])")
             flush(io) 
         end
     end
 end
 
 function regulator_scan()
-    mu_vals = [0.01,0.02,0.03,0.04,0.05]
+    mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
     for mu in mu_vals
         write_odderon_distribution_to_csv(mu)
+    end
+end
+
+function write_f1_form_factor_to_csv()
+    open("output_f1.csv", "w") do io
+        println(io, "k,val,err_real,err_imag")  # header
+        for Δ in 0.01:.125:3.3
+            val, err = f1_form_factor([Δ, 0])
+            println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
+            flush(io) 
+        end
+    end
+end
+
+function write_f2_form_factor_to_csv()
+    open("output_f2.csv", "w") do io
+        println(io, "k,val,err_real,err_imag")  # header
+        for Δ in 0.01:.125:3.3
+            val, err = f2_form_factor([Δ, 0])
+            println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
+            flush(io) 
+        end
+    end
+end
+
+function write_f_form_factor_to_csv()
+    open("output_f.csv", "w") do io
+        println(io, "k,val,err_real,err_imag")  # header
+        for Δ in 0.01:.125:3.3
+            val, err = f_form_factor(1,-1,[Δ, 0])
+            println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
+            flush(io) 
+        end
     end
 end
 
@@ -644,7 +700,245 @@ end
 ### Testing ###
 ###############
 
-using MCIntegration
+function odderon_distribution_v2(   s01::Integer,s02::Integer,
+                                    k::Vector{<:Real},Δ::Vector{<:Real};
+                                    mu::Real=0.01)
+    if !iszero(Δ)
+        throw(ArgumentError("Implementation currently only for vanishing Δ."))
+    end
+
+    function integrand(x,f)
+        # Transform [0,1]^8 cuba samples to physical variables
+        # Parton-x
+        (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
+        # Momenta
+        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])    # k1
+        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
+        r3, ϕ3, d2q2 = hp.cuba_to_polar(x[7:8])    # q2
+        
+        # Reconstruct cartesian momenta from polar coordinates
+        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
+        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
+        d4k = d2k1 * d2k2
+
+        q2 = [r3 * cos(ϕ3), r3 * sin(ϕ3)]
+        # Jacobian
+        d8x = d2x * d4k * d2q2 # 2 + 4 + 2 = 8d integral
+
+        # Regulator
+        mu2 = mu^2
+
+        total = complex(0,0)
+        for s in (+1,-1)
+            # Flip momenta to project out Sivers function
+            q1, q3 = s * k, - s * k - q2
+            q32 = sum(q3.^2)
+            # Add regulator
+            q32 += mu2
+            # k1, k2, k3 = s * k1, s * k2, s * k3  
+            ccc = cubic_color_correlator(s01,s02,x1,x2,x3,q1,q2,q3,k1,k2,k3)
+            total += s * ccc / q32
+        end
+        q22 = sum(q2.^2)
+        # Add regulator
+        q22 += mu2
+        total *=  d8x / q22
+
+        f[1] = real(total)
+        f[2] = imag(total)
+    end
+    integral, err = cuhre(integrand, 8, 2; atol=1e-12, rtol=1e-10);
+    # Prefactors 
+    # prf = - 2π^3 * alpha_s^3 * dabc2 / Nc
+    # For now, factor of g^6 = 1, for simplicity
+    prf = - dabc2 / Nc / 32 
+    # π factors from integration
+    prf /= (4π)^2 * (2π)^6
+    # We return the result up to a factor of k^2
+    result = prf * complex(integral[1],integral[2])
+    err .*= abs(prf)
+    return result, err
+end
+
+function odderon_distribution_mc(  s01::Integer,s02::Integer,
+                                k::Vector{<:Real},Δ::Vector{<:Real};
+                                mu::Real=0.01,neval=1_000_000)
+    if !iszero(Δ)
+        throw(ArgumentError("Implementation currently only for vanishing Δ."))
+    end
+
+    function integrand(x,c)
+        # Transform [0,1]^8 cuba samples to physical variables
+        # Parton-x
+        (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
+        # Momenta
+        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])    # k1
+        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
+        r3, ϕ3, d2q2 = hp.cuba_to_polar(x[7:8])    # q2
+        
+        # Reconstruct cartesian momenta from polar coordinates
+        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
+        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
+        d4k = d2k1 * d2k2
+
+        q2 = [r3 * cos(ϕ3), r3 * sin(ϕ3)]
+        # Jacobian
+        d8x = d2x * d4k * d2q2 # 2 + 4 + 2 = 8d integral
+
+        total = complex(0,0)
+        for s in (+1,-1)
+            # Flip momenta to project out Sivers function
+            q1, q2, q3 = s * k, s * q2, - s * (k + q2)
+            # k1, k2, k3 = s * k1, s * k2, s * k3  
+            ccc = cubic_color_correlator(s01,s02,x1,x2,x3,q1,q2,q3,k1,k2,k3)
+            total += s * ccc
+        end
+        # Regenerate initial q2
+        q2 = [r3 * cos(ϕ3), r3 * sin(ϕ3)]
+        q3 = k + q2
+        q22 = sum(q2.^2)
+        q32 = sum(q3.^2)
+        # Add regulator
+        mu2 = mu^2
+        q22 += mu2
+        q32 += mu2
+        # Same denominator
+        # for both terms once momenta
+        # have been flipped
+        den = q22 * q32  
+        total *=  d8x / den
+
+        return (real(total), imag(total))
+    end
+    var = Continuous(0.0, 1.0)
+    result = integrate(integrand; var, dof = [[8,],[8,]], print=-1, solver=:vegas, neval = neval)
+    return result
+end
+
+function odderon_distribution_mc_v2(  s01::Integer,s02::Integer,
+                                k::Vector{<:Real},Δ::Vector{<:Real};
+                                mu::Real=0.01,neval=1_000_000)
+    if !iszero(Δ)
+        throw(ArgumentError("Implementation currently only for vanishing Δ."))
+    end
+
+    function integrand(x,c)
+        # Transform [0,1]^8 cuba samples to physical variables
+        # Parton-x
+        (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
+        # Momenta
+        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])    # k1
+        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
+        r3, ϕ3, d2q2 = hp.cuba_to_polar(x[7:8])    # q2
+        
+        # Reconstruct cartesian momenta from polar coordinates
+        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
+        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
+        d4k = d2k1 * d2k2
+
+        q2 = [r3 * cos(ϕ3), r3 * sin(ϕ3)]
+        # Jacobian
+        d8x = d2x * d4k * d2q2 # 2 + 4 + 2 = 8d integral
+
+        # Add regulator
+        mu2 = mu^2
+
+        total = complex(0,0)
+        for s in (+1,-1)
+            # Flip momenta to project out Sivers function
+            q1, q3 = s * k, - s * k - q2
+            q32 = sum(q3.^2)
+            q32 += mu2
+            # k1, k2, k3 = s * k1, s * k2, s * k3  
+            ccc = cubic_color_correlator(s01,s02,x1,x2,x3,q1,q2,q3,k1,k2,k3)
+            total += s * ccc / q32
+        end
+        q22 = sum(q2.^2)
+        q22 += mu2
+        total *=  d8x / q22
+
+        return (real(total), imag(total))
+    end
+    var = Continuous(0.0, 1.0)
+    result = integrate(integrand; var, dof = [[8,],[8,]], print=-1, solver=:vegas, neval = neval)
+    return result
+end
+
+#################
+### write out ###
+#################
+
+function write_odderon_distribution_v2_to_csv(mu::Real)
+    open("output_v2_" * string(mu) * ".csv", "w") do io
+        println(io, "k,val,err_real,err_imag")  # header
+        for k in 0:0.1:1
+            # val = odderon_distribution(1,-1,[k,0],[0,0],mu)
+            # println(io, "$(k),$(real(val)),$(imag(val))")
+            val, err = odderon_distribution_v2(1,-1,[k,0],[0,0];mu)
+            println(io, "$(k),$(val),$(err[1]),$(err[2])")
+            flush(io) 
+        end
+    end
+end
+
+function regulator_scan_v2()
+    mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
+    for mu in mu_vals
+        write_odderon_distribution_v2_to_csv(mu)
+    end
+end
+
+function write_odderon_distribution_mc_to_csv(mu::Real,neval)
+    open("output_mc" * string(mu) * ".csv", "w") do io
+        println(io, "k,val,err_real,err_imag")   # header
+        for k in 0:0.1:1
+            res = odderon_distribution_mc(1, -1, [k, 0], [0, 0], mu=mu,neval=neval)
+            val = complex(res.mean[1], res.mean[2])        
+            err = [res.stdev[1], res.stdev[2]]   
+            prf = - dabc2 / Nc / 32 / ((4π)^2 * (2π)^6)
+            val *= prf
+            err .*= abs(prf)
+            println(io, "$(k),$(val),$(err[1]),$(err[2])")
+            flush(io)
+        end
+    end
+end
+
+function regulator_scan_mc()
+    mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
+    neval = 1_000_000
+    for mu in mu_vals
+        write_odderon_distribution_mc_to_csv(mu,neval)
+    end
+end
+
+function write_odderon_distribution_mc_v2_to_csv(mu::Real,neval)
+    open("output_mc_v2" * string(mu) * ".csv", "w") do io
+        println(io, "k,val,err_real,err_imag")   # header
+        for k in 0:0.1:1
+            res = odderon_distribution_mc_v2(1, -1, [k, 0], [0, 0]; mu=mu,neval=neval)
+            val = complex(res.mean[1], res.mean[2])        
+            err = [res.stdev[1], res.stdev[2]]   
+            prf = - dabc2 / Nc / 32 / ((4π)^2 * (2π)^6)
+            val *= prf
+            err .*= abs(prf)
+            println(io, "$(k),$(val),$(err[1]),$(err[2])")
+            flush(io)
+        end
+    end
+end
+
+function regulator_scan_mc_v2()
+    mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
+    neval = 1_000_000
+    for mu in mu_vals
+        write_odderon_distribution_mc_v2_to_csv(mu,neval)
+    end
+end
+
 function f_form_factor_mc(s01::Integer,s02::Integer,Δ::Vector{<:Real}; neval::Integer=1_000_000)
     eu, ed = 2/3, -1/3
     charges = (eu,eu,ed)
@@ -681,21 +975,7 @@ function f_form_factor_mc(s01::Integer,s02::Integer,Δ::Vector{<:Real}; neval::I
     return result
 end
 
-function write_f_form_factor(s01,s02,Δ)
-    res = f_form_factor(s01,s02,[Δ, 0.00001])
-    open("output_f.csv", "a") do io
-        println(io, join([Δ, real(res), imag(res)], ","))
-    end
-end
 
-function write_f2_form_factor(Δ)
-    res = f2_form_factor([Δ, 0])
-    open("output_f2.csv", "a") do io
-        println(io, join([Δ, real(res), imag(res)], ","))
-    end
-end
-
-
-
-
+#############
+#############
 end # module
