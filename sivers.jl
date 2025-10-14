@@ -35,7 +35,7 @@ export  hp, f1_form_factor, f2_form_factor,
         regulator_scan, f_form_factor,
         cubic_color_correlator, odderon_distribution,
         compute_wavefunction, spin_sum, spin_wavefunction,
-        baryon_wavefunction
+        baryon_wavefunction, write_f2_form_factor_to_csv
 
 # export  f1_form_factor, f2_form_factor,
 #         cubic_color_correlator, odderon_distribution, gluon_sivers,
@@ -261,7 +261,8 @@ function normalize_wavefunction()
         f[1] =  real(result)
         f[2] =  imag(result)
     end
-    integral, err = cuhre(integrand, 6, 2; atol=1e-12, rtol=1e-10)
+    integral, err = cuhre(integrand, 6, 2; maxevals=10_000_000) 
+    # integral, err = vegas(integrand, 6, 2; maxevals=10_000_000)
     # Multiply with prefactors from integration
     result = 1 / (4π)^2 / (2π)^4 * complex(integral[1],integral[2])
     # Return norm
@@ -319,7 +320,8 @@ function f_form_factor(s01::Integer,s02::Integer,Δ::Vector{<:Real})
         f[2] = imag(res)
     end
     # Call cuhre with ncomp=2 to track real and imaginary parts separately
-    integral, err = cuhre(integrand, 6, 2; atol=1e-12, rtol=1e-10)
+    integral, err = cuhre(integrand, 6, 2; maxevals=10_000_000)
+    # integral, err = vegas(integrand, 6, 2; maxevals=10_000_000)
     # Reconstruct complex result and
     # multiply with prefactors from integration
     prf = 3 / (4π)^2 / (2π)^4
@@ -371,11 +373,11 @@ function f2_form_factor(Δ::Vector{<:Real})
     # Notation in notes reversed: Lambda', Lambda = s02, s01
     fdu, err_du = f_form_factor(1,-1,Δ)
     fud, err_ud = f_form_factor(-1,1,Δ)
-    # Somehow I need a + here
-    result = 2 * mN^2 / Δ2 * (ΔL / mN * fdu - ΔR / mN * fud)
+
+    result = mN^2 / Δ2 * (ΔL / mN * fdu - ΔR / mN * fud)
     # imaginary part cancels
-    err_re = 2 * mN / sqrt(Δ2) * sqrt(err_du[1]^2 + err_ud[1]^2)
-    err_im = 2 * mN / sqrt(Δ2) * sqrt(err_du[2]^2 + err_ud[2]^2)
+    err_re = mN / sqrt(Δ2) * sqrt(err_du[1]^2 + err_ud[1]^2)
+    err_im = mN / sqrt(Δ2) * sqrt(err_du[2]^2 + err_ud[2]^2)
     return result, [err_re,err_im]
 end
 
@@ -590,7 +592,7 @@ function odderon_distribution(  s01::Integer,s02::Integer,
         f[1] = real(total)
         f[2] = imag(total)
     end
-    integral, err = cuhre(integrand, 8, 2; atol=1e-12, rtol=1e-10)
+    integral, err, prob, neval, fail, nregions = cuhre(integrand, 8, 2; maxevals=10_000_000)
     # Prefactors 
     # prf = - 2π^3 * alpha_s^3 * dabc2 / Nc
     # For now, factor of g^6 = 1, for simplicity
@@ -598,9 +600,9 @@ function odderon_distribution(  s01::Integer,s02::Integer,
     # π factors from integration
     prf /= (4π)^2 * (2π)^6
     # We return the result up to a factor of k^2
-    result = prf * complex(integral[1],integral[2])
+    integral .*= prf
     err .*= abs(prf)
-    return result, err
+    return integral, err, prob, neval, fail, nregions 
 end
 
 """
@@ -643,14 +645,14 @@ mu)' > log.txt 2>&1 &
 function write_odderon_distribution_to_csv(mu::Real)
     # open("output.csv", "w") do io
     # open("output_" * string(mu) * ".csv", "w") do io # m = 0.26 GeV
-    open("output_" * string(mu) * ".csv", "w") do io # m = 0.5 GeV
+    open("output_$(mu).csv", "w") do io # m = 0.5 GeV
     # open("output_m100_" * string(mu) * ".csv", "w") do io # m = 1.0 GeV
-        println(io, "k,val,err_real,err_imag")  # header
+        println(io, "k,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions")  # header
         for k in 0:0.1:1
             # val = odderon_distribution(1,-1,[k,0],[0,0],mu)
             # println(io, "$(k),$(real(val)),$(imag(val))")
-            val, err = odderon_distribution(1,-1,[k,0],[0,0];mu)
-            println(io, "$(k),$(val),$(err[1]),$(err[2])")
+            integral, err, prob, neval, fail, nregions  = odderon_distribution(1,-1,[k,0],[0,0];mu)
+            println(io, "$(k),$(integral[1]),$(integral[2]),$(err[1]),$(err[2]),$(prob[1]),$(prob[2]),$(neval),$(fail),$(nregions)")
             flush(io) 
         end
     end
@@ -677,7 +679,7 @@ end
 function write_f2_form_factor_to_csv()
     open("output_f2.csv", "w") do io
         println(io, "k,val,err_real,err_imag")  # header
-        for Δ in 0.01:.125:3.3
+        for Δ in 1e-6:.125:3.3
             val, err = f2_form_factor([Δ, 0])
             println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
             flush(io) 
@@ -699,6 +701,30 @@ end
 ###############
 ### Testing ###
 ###############
+
+function write_f2_form_factor_mc_to_csv()
+    open("output_f2_mc.csv", "w") do io
+        println(io, "k,val,err_real,err_imag")  # header
+        for Δ in 0.001:.125:3.3
+            ΔL, ΔR, Δ2 = Δ, Δ, Δ^2
+            res_du = f_form_factor_mc(1,-1,[Δ,0];neval=1_000_000)
+            val_du = complex(res_du.mean[1], res_du.mean[2])        
+            err_du = [res_du.stdev[1], res_du.stdev[2]]   
+
+            res_ud = f_form_factor_mc(-1,1,[Δ,0];neval=1_000_000)
+            val_ud = complex(res_ud.mean[1], res_ud.mean[2])        
+            err_ud = [res_ud.stdev[1], res_ud.stdev[2]] 
+            
+            prf = 3 / (4π)^2 / (2π)^4
+            val = prf * 2 * mN^2 / Δ2 * (ΔL / mN * val_du - ΔR / mN * val_ud)
+            err_re = prf * 2 * mN / Δ * sqrt(err_du[1]^2 + err_ud[1]^2)
+            err_im = prf * 2 * mN / Δ * sqrt(err_du[2]^2 + err_ud[2]^2)
+            err = [err_re,err_im]
+            println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
+            flush(io)
+        end
+    end
+end
 
 function odderon_distribution_v2(   s01::Integer,s02::Integer,
                                     k::Vector{<:Real},Δ::Vector{<:Real};
@@ -748,7 +774,7 @@ function odderon_distribution_v2(   s01::Integer,s02::Integer,
         f[1] = real(total)
         f[2] = imag(total)
     end
-    integral, err = cuhre(integrand, 8, 2; atol=1e-12, rtol=1e-10);
+    integral, err = cuhre(integrand, 8, 2; maxevals=10_000_000);
     # Prefactors 
     # prf = - 2π^3 * alpha_s^3 * dabc2 / Nc
     # For now, factor of g^6 = 1, for simplicity
@@ -974,7 +1000,6 @@ function f_form_factor_mc(s01::Integer,s02::Integer,Δ::Vector{<:Real}; neval::I
     result = integrate(integrand; var, dof = [[6,],[6,]], print=-1, solver=:vegas, neval = neval)
     return result
 end
-
 
 #############
 #############
