@@ -542,10 +542,15 @@ Value of the the Odderon distribution times k^2 at k and Δ.
 """
 function odderon_distribution(  s01::Integer,s02::Integer,
                                 k::Vector{<:Real},Δ::Vector{<:Real};
-                                mu::Real=0.01)
+                                mu::Real=0.01,solver="cuhre")
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
+    sol =   solver == "cuhre" ? cuhre :
+            solver == "vegas" ? vegas :
+            solver == "suave" ? suave :
+            solver == "divonne" ? divonne :
+            throw(ArgumentError("solver must be one of: cuhre, vegas, divonne, suave"))
 
     function integrand(x,f)
         # Transform [0,1]^8 cuba samples to physical variables
@@ -570,7 +575,6 @@ function odderon_distribution(  s01::Integer,s02::Integer,
         for s in (+1,-1)
             # Flip momenta to project out Sivers function
             q1, q2, q3 = s * k, s * q2, - s * (k + q2)
-            # k1, k2, k3 = s * k1, s * k2, s * k3  
             ccc = cubic_color_correlator(s01,s02,x1,x2,x3,q1,q2,q3,k1,k2,k3)
             total += s * ccc
         end
@@ -592,7 +596,7 @@ function odderon_distribution(  s01::Integer,s02::Integer,
         f[1] = real(total)
         f[2] = imag(total)
     end
-    integral, err, prob, neval, fail, nregions = cuhre(integrand, 8, 2; maxevals=10_000_000)
+    integral, err, prob, neval, fail, nregions = sol(integrand, 8, 2; atol =1e-3, rtol=1e-3, maxevals=10_000_000)
     # Prefactors 
     # prf = - 2π^3 * alpha_s^3 * dabc2 / Nc
     # For now, factor of g^6 = 1, for simplicity
@@ -642,26 +646,25 @@ Run over ssh using e.g.
 nohup julia -e 'include("sivers.jl"); Sivers.write_odderon_distribution_to_csv(
 mu)' > log.txt 2>&1 &
 """
-function write_odderon_distribution_to_csv(mu::Real)
-    # open("output.csv", "w") do io
-    # open("output_" * string(mu) * ".csv", "w") do io # m = 0.26 GeV
-    open("output_$(mu).csv", "w") do io # m = 0.5 GeV
-    # open("output_m100_" * string(mu) * ".csv", "w") do io # m = 1.0 GeV
+function write_odderon_distribution_to_csv(mu::Real,solver::String="cuhre")
+    filename = "output_$(solver)_$(mu).csv"
+    open(filename, "w") do io 
         println(io, "k,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions")  # header
         for k in 0:0.1:1
             # val = odderon_distribution(1,-1,[k,0],[0,0],mu)
             # println(io, "$(k),$(real(val)),$(imag(val))")
-            integral, err, prob, neval, fail, nregions  = odderon_distribution(1,-1,[k,0],[0,0];mu)
+            integral, err, prob, neval, fail, nregions  = odderon_distribution(1,-1,[k,0],[0,0];mu=mu,solver=solver)
             println(io, "$(k),$(integral[1]),$(integral[2]),$(err[1]),$(err[2]),$(prob[1]),$(prob[2]),$(neval),$(fail),$(nregions)")
             flush(io) 
         end
     end
 end
 
-function regulator_scan()
-    mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
+function regulator_scan(solver::String)
+    # mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
+    mu_vals = [0.01,0.02,0.03,0.04,0.05]
     for mu in mu_vals
-        write_odderon_distribution_to_csv(mu)
+        write_odderon_distribution_to_csv(mu,solver)
     end
 end
 
@@ -787,9 +790,9 @@ function odderon_distribution_v2(   s01::Integer,s02::Integer,
     return result, err
 end
 
-function odderon_distribution_mc(  s01::Integer,s02::Integer,
-                                k::Vector{<:Real},Δ::Vector{<:Real};
-                                mu::Real=0.01,neval=1_000_000)
+function odderon_distribution_mc(   s01::Integer,s02::Integer,
+                                    k::Vector{<:Real},Δ::Vector{<:Real};
+                                    mu::Real=0.01,neval=100_000_000)
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
@@ -935,7 +938,7 @@ end
 
 function regulator_scan_mc()
     mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
-    neval = 1_000_000
+    neval = 100_000_000
     for mu in mu_vals
         write_odderon_distribution_mc_to_csv(mu,neval)
     end
