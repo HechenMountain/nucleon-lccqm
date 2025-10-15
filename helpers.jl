@@ -36,6 +36,24 @@ kronecker_delta(a, b) = a == b ? 1 : 0
 spin_index(s) = (s == -1) ? 1 : 2
 
 """
+    regulate_cuba(x)
+
+Regulates the endpoints of [0,1]^n Cuba samples to avoid NaNs
+# Arguments
+- `x::Vector{<:Real}`: [0,1]^n Cuba sample
+
+# Returns
+- `x::Vector{<:Real}`: Regulated values (x[i] +-= 1e-12 depending on the endpoint)
+"""
+function regulate_cuba(x::Vector{<:Real})
+    if any(x .< 0) || any(x .> 1)
+        throw(ArgumentError("Cuba value out of bounds [0,1]: $x"))
+    end
+    return clamp.(x, 1e-12, 1 - 1e-12)
+end
+
+
+"""
     cuba_to_parton_x(x)
 
 Performs the variable transformation from [0,1]^n 
