@@ -49,7 +49,7 @@ function regulate_cuba(x::Vector{<:Real})
     if any(x .< 0) || any(x .> 1)
         throw(ArgumentError("Cuba value out of bounds [0,1]: $x"))
     end
-    return clamp.(x, 1e-12, 1 - 1e-12)
+    return clamp.(x, 1e-14, 1 - 1e-14)
 end
 
 
