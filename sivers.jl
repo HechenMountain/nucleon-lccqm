@@ -18,21 +18,6 @@ import .helpers
 # Shorthand
 hp = helpers
 
-using Dates
-
-###################
-# To be removed ###
-###################
-# Parallelization
-using Base.Threads
-
-using MCIntegration
-
-# Progress bar
-using ProgressMeter
-const Atomic = Base.Threads.Atomic
-const atomic_add! = Base.Threads.atomic_add!
-
 ###################
 
 export  hp, f1_form_factor, f2_form_factor,
@@ -62,27 +47,33 @@ dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc ;
 #####################
 
 """
-    spin_wavefunction(s0,s1,s2,s3,k1, k2, k3, x1, x2, x3)
+    spin_wavefunction(s0::Integer,
+                      s1::Integer,s2::Integer,s3::Integer,
+                      k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
+                      x1::Real, x2::Real, x3::Real)
 
 Spin dependence of baryon wavefunction obtained from Clebsch-Gordan coefficients.
 0 refers to proton, 1-3 are valence quark indices
-# Arguments
-- `s0, s1, s2, s3::Integer`: Spin indices of proton and valence quarks. Either +1 or -1
-- `k1, k2, k3::Vector{<:Real}`: Momenta of valence quarks
-    - 2d real vectors
-- `x1, x2, x3::Real`: Parton x of valence quarks
-    - Must be in [0,1]
+### Input
 
-# Returns
--   Value of spinor wavefunction
+- `s0, s1, s2, s3`  -- Spin indices of proton and valence quarks. Either +1 or -1
+- `k1, k2, k3`      -- Momenta of valence quarks
+                       - 2d real vectors
+- `x1, x2, x3`      -- Parton x of valence quarks
+                       - Must be in [0,1]
 
-# Notes
--   Momenta should be cartesian.
+### Output
+
+Value of spinor wavefunction
+
+### Notes
+
+Momenta should be cartesian.
 """
-function spin_wavefunction( s0::Integer,
-                            s1::Integer,s2::Integer,s3::Integer,
-                            k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
-                            x1::Real, x2::Real, x3::Real)
+function spin_wavefunction(s0::Integer,
+                           s1::Integer, s2::Integer, s3::Integer,
+                           k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
+                           x1::Real, x2::Real, x3::Real)
     # Parameters
     mq = params.mq
     if !all(s -> s == 1 || s == -1, (s0,s1,s2,s3))
@@ -107,23 +98,28 @@ function spin_wavefunction( s0::Integer,
 end
 
 """
-    momentum_space_wavefunction(k1, k2, k3, x1, x2, x3)
+    momentum_space_wavefunction(k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
+                                x1::Real, x2::Real, x3::Real)
 
 Momentum dependence of baryon wavefunction
-# Arguments
-- `k1, k2, k3::Vector{<:Real}`: Momenta of valence quarks
-    - 2d real vectors
-- `x1, x2, x3::Real`: Parton x of valence quarks
-    - Must be in [0,1]
 
-# Returns
--   Value of momentum space wavefunction
+### Input
 
-# Notes
--   Momenta should be cartesian.
+- `k1, k2, k3 -- Momenta of valence quarks
+                 - 2d real vectors
+- `x1, x2, x3 -- Parton x of valence quarks
+                 - Must be in [0,1]
+
+### Output
+
+Value of momentum space wavefunction
+
+### Notes
+
+Momenta should be cartesian.
 """
-function momentum_space_wavefunction(   k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
-                                        x1::Real, x2::Real, x3::Real)
+function momentum_space_wavefunction(k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
+                                     x1::Real, x2::Real, x3::Real)
     # Parameters
     mq = params.mq
     β = params.β
@@ -134,58 +130,69 @@ function momentum_space_wavefunction(   k1::Vector{<:Real}, k2::Vector{<:Real}, 
 end
 
 """
-    baryon_wavefunction(s0,s1,s2,s3,k1, k2, k3, x1, x2, x3)
-
+    baryon_wavefunction(s0::Integer,
+                        s1::Integer,s2::Integer,s3::Integer,
+                        k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
+                        x1::Real, x2::Real, x3::Real)
 Compute product of spinor and momentum space wave function.
-0 refers to proton, 1-3 are valence quark indices
-# Arguments
-- `s0, s1, s2, s3::Integer`: Spin indices of proton and valence quarks. 
-    - Must be either +1 or -1
-- `k1, k2, k3::Vector{<:Real}`: Momenta of valence quarks
-    - 2d real vectors
-- `x1, x2, x3::Real`: Parton x of valence quarks
-    - Must be in [0,1]
 
-# Returns
+### Input
+
+- `s0, s1, s2, s3 -- Spin indices of proton and valence quarks. 
+                     - Must be either +1 or -1
+- `k1, k2, k3`    -- Momenta of valence quarks
+                     - 2d real vectors
+- `x1, x2, x3` -- Parton x of valence quarks
+                  - Must be in [0,1]
+
+### Output
+
 Value of baryon wavefunction
 
-# Notes
--   Normalization carried out in f_form_factor and odderon_distribution later on
--   Momenta should be cartesian.
+### Notes
+
+- 0 refers to proton, 1-3 are valence quark indices
+- Normalization carried out in f_form_factor and odderon_distribution later on
+- Momenta should be cartesian.
 """
-function baryon_wavefunction(   s0::Integer,
-                                s1::Integer,s2::Integer,s3::Integer,
-                                k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
-                                x1::Real, x2::Real, x3::Real)
+function baryon_wavefunction(s0::Integer,
+                             s1::Integer, s2::Integer, s3::Integer,
+                             k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
+                             x1::Real, x2::Real, x3::Real)
     ms_wf =  momentum_space_wavefunction(k1, k2, k3, x1, x2, x3)
-    spin_wf = spin_wavefunction(s0,s1,s2,s3,k1,k2,k3,x1,x2,x3)
+    spin_wf = spin_wavefunction(s0, s1, s2, s3, k1, k2, k3, x1, x2, x3)
     wf =  ms_wf * spin_wf / sqrt(3)
     return wf
 end
 
 """
-    compute_wavefunction(s,k1, k2, k3, x1, x2, x3)
+    compute_wavefunction(s::Integer,
+                         k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
+                         x1::Real, x2::Real, x3::Real)
 
 Precompute wavefunction and write index combinatioons to array.
 
-# Arguments
--   `s::Integer`: Spin index of proton.
-    - Must be either +1 or -1
--   `k1, k2, k3::Vector{<:Real}`: Momenta of valence quarks
-    - 2d real vectors
--   `x1, x2, x3::Real`: Parton x of valence quarks
-    - Must be in [0,1]
+### Input
 
-# Returns
--   Value of norm of baryon wavefunction. To be set in parameters.jl
+- `s`          -- Spin index of proton.
+                  - Must be either +1 or -1
+- `k1, k2, k3` -- Momenta of valence quarks
+                  - 2d real vectors
+- `x1, x2, x3` -- Parton x of valence quarks
+                  - Must be in [0,1]
 
-# Notes
--   The indices 1 (-1) of the valence quarks are mapped to 1 (2) 
-    such that the wavefunction is accessed as e.g. wf[1,2,1]
+### Output
+
+Value of norm of baryon wavefunction. To be set in parameters.jl
+
+### Notes
+
+The indices 1 (-1) of the valence quarks are mapped to 1 (2) 
+such that the wavefunction is accessed as e.g. wf[1,2,1]
 """
-function compute_wavefunction(  s::Integer,
-                                k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
-                                x1::Real, x2::Real, x3::Real)
+function compute_wavefunction(s::Integer,
+                              k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
+                              x1::Real, x2::Real, x3::Real)
     # initialize array with 2^3 spin configurations
     wf = Array{ComplexF64}(undef, 2, 2, 2)
     for s1 in (-1,1), s2 in (-1,1), s3 in (-1,1)
@@ -196,20 +203,21 @@ function compute_wavefunction(  s::Integer,
 end
 
 """
-    spin_sum(wf1,wf2)
+    spin_sum(wf1::Array{ComplexF64, 3},wf2::Array{ComplexF64, 3})
 
 Carries out the spin sum over 2 wavefunctions.
 
-# Arguments
--   `wf1,wf2::Array{ComplexF64, 3}`: Baryon wavefunctions
-    - Must be array with 2^3 entries
+### Input
+- `wf1,wf2` -- Baryon wavefunctions
+               - Must be array with 2^3 entries
 
-# Returns
--   Value of ∑conj(wf2) * wf1
+### Output
+Value of ∑conj(wf2) * wf1
 
-# Notes
--   The wavefunctions wf1, wf2 passed to this object need to be in array form
-    as generated by compute_wavefunction.
+### Notes
+
+The wavefunctions wf1, wf2 passed to this object need to be in array form
+as generated by compute_wavefunction.
 """
 # Wrapper for spin sum
 function spin_sum(wf1::Array{ComplexF64, 3},wf2::Array{ComplexF64, 3})
@@ -217,7 +225,7 @@ function spin_sum(wf1::Array{ComplexF64, 3},wf2::Array{ComplexF64, 3})
     # Sum over spins
     for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
         i1, i2, i3 = hp.spin_index(s1), hp.spin_index(s2), hp.spin_index(s3)
-        total += conj(wf2[i1,i2,i3]) * wf1[i1,i2,i3]
+        total += conj(wf2[i1, i2, i3]) * wf1[i1, i2, i3]
     end
     return total
 end
@@ -227,12 +235,12 @@ end
 
 Normalize the baryon wave function with parameters defined in parameters.jl
 
-# Returns
--   Value of norm of baryon wavefunction and errors. To be set in parameters.jl
+### Output
+Value of norm of baryon wavefunction and errors. To be set in parameters.jl
 
-# Notes
--   Cuba samples are regulate to avoid endpoint singularities
--   Summation is done inside the integrand such that cuhre is only called once.
+### Notes
+- Cuba samples are regulate to avoid endpoint singularities
+- Summation is done inside the integrand such that cuhre is only called once.
 """
 function normalize_wavefunction()
     function integrand(x,f)
@@ -254,7 +262,7 @@ function normalize_wavefunction()
         # Sum over spin contributions
         total = 0.0
         for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
-            spin_wf = spin_wavefunction(1,s1,s2,s3,k1,k2,k3,x1,x2,x3) 
+            spin_wf = spin_wavefunction(1, s1, s2, s3, k1, k2, k3, x1, x2, x3) 
             wf = ms_wf * spin_wf
             # total += abs2(wf)
             total += conj(wf) * wf
@@ -266,7 +274,7 @@ function normalize_wavefunction()
     integral, err = cuhre(integrand, 6, 2; maxevals=10_000_000) 
     # integral, err = vegas(integrand, 6, 2; maxevals=10_000_000)
     # Multiply with prefactors from integration
-    result = 1 / (4π)^2 / (2π)^4 * complex(integral[1],integral[2])
+    result = 1 / (4π)^2 / (2π)^4 * complex(integral[1], integral[2])
     # Return norm
     norm = 1 / sqrt(result)
     return norm, err
@@ -277,22 +285,28 @@ end
 ####################
 
 """
-    f_form_factor(Δ)
+    f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
 
 Compute the F-type form factor needed to generate F1 and F2
-# Arguments
--   `Δ::Vector{<:Real}`: Momentum transfer
-    - 2d real vector
 
-# Returns
--   Value of the F-type form factor for a given momentum transfer
+### Input
 
-# Notes
--   norm is set in parameters.jl and can be obtained from normalize_wavefunction(). 
--   Spin sums etc. are performed inside integrand, then cuhre is used once.
--   Momenta need to be cartesian
+- `s01, s02` -- Spins of the external protons
+                - Must be either +1 or -1
+- `Δ`        -- Momentum transfer
+                - 2d real vector
+
+### Output
+
+Value of the F-type form factor for a given momentum transfer
+
+### Notes
+
+- norm is set in parameters.jl and can be obtained from normalize_wavefunction(). 
+- Spin sums etc. are performed inside integrand, then cuhre is used once.
+- Momenta need to be cartesian
 """
-function f_form_factor(s01::Integer,s02::Integer,Δ::Vector{<:Real})
+function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
     eu, ed = 2/3, -1/3
     charges = (eu,eu,ed)
     function integrand(x,f)
@@ -311,15 +325,15 @@ function f_form_factor(s01::Integer,s02::Integer,Δ::Vector{<:Real})
         d4k = d2k1 * d2k2
 
         total = 0
-        wf1 = compute_wavefunction(s01,k1,k2,k3,x1,x2,x3)
+        wf1 = compute_wavefunction(s01, k1, k2, k3, x1, x2, x3)
         # Sum over charge contributions
         for (i,q) in enumerate(charges)
             k1prime = k1 - x1 * Δ + hp.kronecker_delta(i,1) * Δ
             k2prime = k2 - x2 * Δ + hp.kronecker_delta(i,2) * Δ
             k3prime = k3 - x3 * Δ + hp.kronecker_delta(i,3) * Δ
-            wf2 = compute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
+            wf2 = compute_wavefunction(s02, k1prime, k2prime, k3prime, x1, x2, x3)
             # Sum over spin contributions
-            total += q * spin_sum(wf1,wf2)
+            total += q * spin_sum(wf1, wf2)
         end
         res = total * d4k * d2x
         f[1] = real(res)
@@ -332,60 +346,68 @@ function f_form_factor(s01::Integer,s02::Integer,Δ::Vector{<:Real})
     # multiply with prefactors from integration
     norm = params.norm
     prf = 3 / (4π)^2 / (2π)^4 * norm^2
-    result = prf * complex(integral[1],integral[2])
+    result = prf * complex(integral[1], integral[2])
     err .*= prf
     return result, err
 end
 
 """
-    f1_form_factor(Δ)
+    f1_form_factor(Δ::Vector{<:Real})
 
 Compute the F1 form factor
-# Arguments
--   `Δ::Vector{<:Real}`: Momentum transfer
-    - 2d real vector
 
-# Returns
--   Value of the F1 form factor for a given momentum transfer
+### Input
 
-# Notes
--   norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
--   Spin sums etc. are performed inside integrand, then cuhre is used once.
--   Momenta need to be cartesian
+- `Δ` -- Momentum transfer
+         - 2d real vector
+
+### Output
+
+Value of the F1 form factor for a given momentum transfer
+
+### Notes
+
+- norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
+- Spin sums etc. are performed inside integrand, then cuhre is used once.
+- Momenta need to be cartesian
 """
 function f1_form_factor(Δ::Vector{<:Real})
-    result, err = f_form_factor(1,1,Δ)
+    result, err = f_form_factor(1, 1, Δ)
     return result, err
 end
 
 """
-    f2_form_factor(Δ)
+    f2_form_factor(Δ::Vector{<:Real})
 
 Compute the F2 form factor
-# Arguments
--   `Δ::Vector{<:Real}`: Momentum transfer
-    - 2d real vector
 
-# Returns
+### Input
+
+- `Δ` -- Momentum transfer
+         - 2d real vector
+
+### Output
+
 Value of the F2 form factor for a given momentum transfer
 
-# Notes
--   norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
--   Spin sums etc. are performed inside integrand, then cuhre is used once.
--   Momenta need to be cartesian
+### Notes
+
+- norm is set in parameters.jl and can be obtained from normalize_wavefunction(s0)
+- Spin sums etc. are performed inside integrand, then cuhre is used once.
+- Momenta need to be cartesian
 """
 function f2_form_factor(Δ::Vector{<:Real})
-    ΔL, ΔR = complex(Δ[1],-Δ[2]) , complex(Δ[1],Δ[2]) 
+    ΔL, ΔR = complex(Δ[1], -Δ[2]) , complex(Δ[1], Δ[2]) 
     Δ2 = sum(Δ.^2)
     # Notation in notes reversed: Lambda', Lambda = s02, s01
-    fdu, err_du = f_form_factor(1,-1,Δ)
-    fud, err_ud = f_form_factor(-1,1,Δ)
+    fdu, err_du = f_form_factor(1, -1, Δ)
+    fud, err_ud = f_form_factor(-1, 1, Δ)
 
     result = mN^2 / Δ2 * (ΔL / mN * fdu - ΔR / mN * fud)
     # imaginary part cancels
     err_re = mN / sqrt(Δ2) * sqrt(err_du[1]^2 + err_ud[1]^2)
     err_im = mN / sqrt(Δ2) * sqrt(err_du[2]^2 + err_ud[2]^2)
-    return result, [err_re,err_im]
+    return result, [err_re, err_im]
 end
 
 ###########################
@@ -393,38 +415,44 @@ end
 ###########################
 
 """
-    cubic_color_correlator(s01,s02,x1,x2,x3,q1,q2,q3,k1,k2,k3)
+    cubic_color_correlator(s01::Integer,s02::Integer,
+                           x1::Real, x2::Real, x3::Real,
+                           q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real},
+                           k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
 
-Compute the unintegrated cubic color correlator by summing one-, two-,
-and three-body contributions.
-# Arguments
--   `s01,s02::Integer`: Spins of the external protons
-    - Must be either +1 or -1
--   `x1,x2,x3::Real`: Parton-x values
-    - (1 - x1 -x2 - x3) = 0
--   'q1,q2,q3::Vector{<:Real}': Eikonal momenta
-    - 2d real vectors
--   'k1,k2,k3::Vector{<:Real}': Transverse momenta
-    - 2d real vectors
+Compute the unintegrated cubic color correlator by summing one-, two-, and three-body contributions.
 
-# Returns
--   Value of the cubic color correlator for the given spin configuration and kinematics
+### Input
 
-# Notes
--   This is G_3ΛΛ' stripped of the integrals and factor of  1 / (4π)^2 / (2π)^2  in the draft
+- `s01, s02`    -- Spins of the external protons
+                   - Must be either +1 or -1
+- `x1, x2, x3`  -- Parton-x values
+                   - (1 - x1 -x2 - x3) = 0
+- 'q1, q2, q3'  -- Eikonal momenta
+                   - 2d real vectors
+- 'k1, k2, k3'  -- Transverse momenta
+                   - 2d real vectors
+
+### Output
+
+- Value of the cubic color correlator for the given spin configuration and kinematics
+
+### Notes
+
+This is G_3ΛΛ' stripped of the integrals and factor of  1 / (4π)^2 / (2π)^2  in the draft
 """
 function cubic_color_correlator(s01::Integer,s02::Integer,
-                                x1::Real,x2::Real,x3::Real,
-                                q1::Vector{<:Real},q2::Vector{<:Real},q3::Vector{<:Real},
-                                k1::Vector{<:Real},k2::Vector{<:Real},k3::Vector{<:Real})
-    function one_body_kin(i,j123,q1,q2,q3)
+                                x1::Real, x2::Real, x3::Real,
+                                q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real},
+                                k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+    function one_body_kin(i, j123, q1, q2, q3)
         # Momentum inflow [q1 + q2 + q3] at j123
         # i is k_prime (quark) index, j123 quark line with 
         # momentum inflow q1 + q2 + q3 from gluon.
         delta_kiprime =  hp.kronecker_delta(i, j123) * (q1 + q2 + q3)
         return delta_kiprime
     end
-    function two_body_kin(i,j12,j3,l,q1,q2,q3)
+    function two_body_kin(i, j12, j3, l, q1, q2, q3)
         # Momentum inflow [q1 + q2,j12] [q3,j3] at j12 and j3
         # i is k_prime (quark) index, j12, j3 quark line with
         # momentum inflow q1 + q2 and q3 from gluon.
@@ -439,7 +467,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         end
         return delta_kiprime
     end
-    function three_body_kin(i,j1,j2,j3,q1,q2,q3)
+    function three_body_kin(i, j1, j2, j3, q1, q2, q3)
         # Momentum inflow [q1,j1] [q2,j2] [q3,j3]
         # i is k_prime (quark) index, j1, j2, j3 are gluons with momenta
         # q1, q2 and q3, respectively, attached to quark lines.
@@ -448,7 +476,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
     end
     # Cubic color correlator without Jacobian
     # Precompute incoming baryon wavefunction
-    wf1 = compute_wavefunction(s01,k1, k2, k3, x1, x2, x3)
+    wf1 = compute_wavefunction(s01, k1, k2, k3, x1, x2, x3)
 
     # Constant parts
     Δ = - (q1 + q2 + q3)
@@ -457,12 +485,12 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
     total = complex(0,0)
     # One-body
     for j123 in 1:3
-        k1prime = k1prime0 - one_body_kin(1,j123,q1,q2,q3)
-        k2prime = k2prime0 - one_body_kin(2,j123,q1,q2,q3)
-        k3prime = k3prime0 - one_body_kin(3,j123,q1,q2,q3)
+        k1prime = k1prime0 - one_body_kin(1, j123, q1, q2, q3)
+        k2prime = k2prime0 - one_body_kin(2, j123, q1, q2, q3)
+        k3prime = k3prime0 - one_body_kin(3, j123, q1, q2, q3)
         wf2 = compute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
         # Perform spin sum
-        total += spin_sum(wf1,wf2)
+        total += spin_sum(wf1, wf2)
     end
     # Two-body
     # Addtional terms from permutations, so we have an extra sum over k
@@ -470,57 +498,61 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         if j12 == j3
             continue
         end
-        k1prime = k1prime0 - two_body_kin(1,j12,j3,l,q1,q2,q3)
-        k2prime = k2prime0 - two_body_kin(2,j12,j3,l,q1,q2,q3)
-        k3prime = k3prime0 - two_body_kin(3,j12,j3,l,q1,q2,q3)
-        wf2 = compute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
+        k1prime = k1prime0 - two_body_kin(1, j12, j3, l, q1, q2, q3)
+        k2prime = k2prime0 - two_body_kin(2, j12, j3, l, q1, q2, q3)
+        k3prime = k3prime0 - two_body_kin(3, j12, j3, l, q1, q2, q3)
+        wf2 = compute_wavefunction(s02, k1prime, k2prime, k3prime, x1, x2, x3)
         # Perform spin sum
-        total += spin_sum(wf1,wf2)
+        total += spin_sum(wf1, wf2)
     end
     # Three-body
     for j1 in 1:3, j2 in 1:3, j3 in 1:3
         if j1 == j2 || j1 == j3 || j2 == j3
             continue
         end
-        k1prime = k1prime0 - three_body_kin(1,j1,j2,j3,q1,q2,q3)
-        k2prime = k2prime0 - three_body_kin(2,j1,j2,j3,q1,q2,q3)
-        k3prime = k3prime0 - three_body_kin(3,j1,j2,j3,q1,q2,q3)
-        wf2 = compute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
+        k1prime = k1prime0 - three_body_kin(1, j1, j2, j3, q1, q2, q3)
+        k2prime = k2prime0 - three_body_kin(2, j1, j2, j3, q1, q2, q3)
+        k3prime = k3prime0 - three_body_kin(3, j1, j2, j3, q1, q2, q3)
+        wf2 = compute_wavefunction(s02, k1prime, k2prime, k3prime, x1, x2, x3)
         # Perform spin sum
-        total += spin_sum(wf1,wf2)
+        total += spin_sum(wf1, wf2)
     end
     return total
 end
 
 """
-    odderon_distribution(s01,s02,k,Δ,mu,solver)
+    odderon_distribution(s01::Integer,s02::Integer,
+                         k::Vector{<:Real},Δ::Vector{<:Real};
+                         [mu]::Real=0.01,[solver]::String="cuhre")
 
 Compute the Odderon distribution O * k^2 for momentum transfer k and Δ
-# Arguments
--   `s01::Integer`: Spin of the incoming hadron
--   `s02::Integer`: Spin of the outgoing hadron
--   `k::Vector{<:Real}`: Transverse momentum transfer
-    - 2d real vector
--   `Δ::Vector{<:Real}`: Total momentum transfer
-    - 2d real vector
--   `mu::Real`: Regulator for integrand
--   `solver::String`: Integration strategy
-    - Either "cuhre", "vegas", "divonne", "suave"
 
-# Returns
--   Value of the the Odderon distribution times k^2 at k and Δ.
+### Input
 
-# Notes
--   For now this expression is only valid for Δ = [0,0].
-    Corresponds to OΛΛ'(k,Δ) in the draft.
--   We drop the 1 / k^2 since it cancels with the corresponding
-    factor in the definition of the sivers function. 
--   Supplied momenta should be cartesian.
--   norm is set in parameters.jl and can be obtained from normalize_wavefunction(). 
+- `s01, s02` -- Spins of the external protons
+                - Must be either +1 or -1
+- `k`        -- Transverse momentum transfer
+                - 2d real vector
+- `Δ`        -- Total momentum transfer
+                - 2d real vector
+- `mu`       -- (optional, default: `0.01`) Regulator for integrand
+- `solver`   -- (optional, default: `"cuhre"`) Integration strategy
+                - Either "cuhre", "vegas", "divonne", "suave"
+
+### Output
+
+Value of the the Odderon distribution times k^2 at k and Δ.
+
+### Notes
+- For now this expression is only valid for Δ = [0,0].
+  Corresponds to OΛΛ'(k,Δ) in the draft.
+- We drop the 1 / k^2 and add it later in the definition of the sivers function. 
+- Supplied momenta should be cartesian.
+- norm is set in parameters.jl and can be obtained from normalize_wavefunction(). 
 """
-function odderon_distribution(  s01::Integer,s02::Integer,
-                                k::Vector{<:Real},Δ::Vector{<:Real};
-                                mu::Real=0.01,solver::String="cuhre")
+function odderon_distribution(s01::Integer, s02::Integer,
+                              k::Vector{<:Real}, Δ::Vector{<:Real};
+                              mu::Real=0.01, solver::String="cuhre")
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
@@ -555,7 +587,7 @@ function odderon_distribution(  s01::Integer,s02::Integer,
         for s in (+1,-1)
             # Flip momenta to project out Sivers function
             q1, q2, q3 = s * k, s * q2, - s * (k + q2)
-            ccc = cubic_color_correlator(s01,s02,x1,x2,x3,q1,q2,q3,k1,k2,k3)
+            ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
             total += s * ccc
         end
         # Regenerate initial q2
@@ -598,31 +630,33 @@ end
     odderon_distribution_v2(k,Δ)
 
 Compute the Odderon distribution O * k^2 for momentum transfer k and Δ
-# Arguments
--   `s01::Integer`: Spin of the incoming hadron
--   `s02::Integer`: Spin of the outgoing hadron
--   `k::Vector{<:Real}`: Transverse momentum transfer
-    - 2d real vector
--   `Δ::Vector{<:Real}`: Total momentum transfer
-    - 2d real vector
--   `mu::Real`: Regulator for integrand
--   `solver::String`: Integration strategy
-    - Either "cuhre", "vegas", "divonne", "suave"
 
-# Returns
--   Value of the the Odderon distribution times k^2 at k and Δ. Does not utilize
-    the symmetry of the integrand when k_i -> - k_i
+### Input
+- `s01, s02` -- Spin of the incoming hadron
+- `k`        -- Transverse momentum transfer
+                - 2d real vector
+- `Δ`        -- Total momentum transfer
+                - 2d real vector
+- `mu`       -- Regulator for integrand
+- `solver`   -- Integration strategy
+                - Either "cuhre", "vegas", "divonne", "suave"
 
-# Notes
--   For now this is expression is only valid for Δ = [0,0].
-    Corresponds to OΛΛ'(k,Δ) in the draft.
--   We drop the 1 / k^2 since it cancels with the corresponding
-    factor in the definition of the sivers function. 
--   Supplied momenta should be cartesian.
+### Output
+
+Value of the the Odderon distribution times k^2 at k and Δ. Does not utilize
+the symmetry of the integrand when k_i -> - k_i
+
+### Notes
+
+- For now this is expression is only valid for Δ = [0,0].
+  Corresponds to OΛΛ'(k,Δ) in the draft.
+- We drop the 1 / k^2 since it cancels with the corresponding
+  factor in the definition of the sivers function. 
+- Supplied momenta should be cartesian.
 """
-function odderon_distribution_v2(   s01::Integer,s02::Integer,
-                                    k::Vector{<:Real},Δ::Vector{<:Real};
-                                    mu::Real=0.01)
+function odderon_distribution_v2(s01::Integer,s02::Integer,
+                                 k::Vector{<:Real},Δ::Vector{<:Real};
+                                 mu::Real=0.01)
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
@@ -676,32 +710,50 @@ function odderon_distribution_v2(   s01::Integer,s02::Integer,
     # π factors from integration
     prf /= (4π)^2 * (2π)^6
     # We return the result up to a factor of k^2
-    result = prf * complex(integral[1],integral[2])
+    result = prf * complex(integral[1], integral[2])
     err .*= abs(prf)
     return result, err
 end
 
 """
-    gluon_sivers(k)
+    gluon_sivers(k::Real;mu::Real=0.01,solver::String="cuhre")
 
 Compute the gluon Sivers function for momentum transfer k
-# Arguments
--   `k::Vector{<:Real}`: Momentum transfer
-    - 2d real vector
 
-# Returns
--   Value of the gluon Sivers function at k
+### Input
+
+- `k` -- Transverse momentum transfer
+   - 2d real vector
+- `Δ` -- Total momentum transfer
+   - 2d real vector
+- `mu` -- Regulator for integrand
+- `solver` -- (optional, default =`"cuhre`) Integration strategy
+    - Either "cuhre", "vegas", "divonne", "suave"
+
+### Output
+
+- Value of the gluon Sivers function at k
+
+### Notes
+Assumes that 2d k vector is [kx, 0]. For k not along x,
+one would need to compute both s01, s02 = 1, -1 and -1, 1 and sum
+like in f2_form_factor
 """
-function gluon_sivers(k::Vector{<:Real};mu::Real=0.01,solver::String="cuhre")
+function gluon_sivers(k::Real; mu::Real=0.01, solver::String="cuhre")
     # Spin flip
     s01 = 1
     s02 = -1
     # Zero momentum transfer
     Δ = [0,0]
 
-    odderon_dist = odderon_distribution(s01,s02,k,Δ;mu=mu,solver=solver)
-    # 1 / k^2 cancelled with Odderon distribution
-    prf = - 8 * mN * Nc / π * alpha_s^2
+    odderon_dist, = odderon_distribution(s01, s02, [k,0], Δ; mu=mu, solver=solver)
+    # 1 / k^2 partially cancels with Odderon distribution
+    k_perp = k[1]
+    # Regulate singularity
+    if k_perp == 0
+        k_perp = 1e-12
+    end
+    prf = - 8 * mN * Nc / π * alpha_s^2 / k[1]
     result = prf * odderon_dist
     return result
 end
@@ -711,41 +763,73 @@ end
 #################
 
 """
-    write_odderon_distribution_to_csv()
+    write_odderon_distribution_to_csv(mu::Real, [solver]::String="cuhre")
 
 Write result of odderon_distribution for |k| in [0,2] GeV
 
-# Notes
--   Run over ssh using e.g.
-    nohup julia -e 'include("sivers.jl"); 
-    Sivers.write_odderon_distribution_to_csv(mu)' > log.txt 2>&1 &
+### Input
+
+- `mu` -- Regulator for integration
+- `solver` -- (optional, default =`"cuhre`) Integration strategy
+  - Either "cuhre", "vegas", "divonne", "suave"
+
+### Notes
+
+- Run over ssh using e.g.
+  nohup julia -e 'include("sivers.jl"); 
+  Sivers.write_odderon_distribution_to_csv(mu)' > log.txt 2>&1 &
 """
-function write_odderon_distribution_to_csv(mu::Real,solver::String="cuhre")
+function write_odderon_distribution_to_csv(mu::Real, solver::String="cuhre")
     filename = "output_$(solver)_$(mu).csv"
     open(filename, "w") do io 
         println(io, "k,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions")  # header
         for k in 0:0.01:1.25
             # val = odderon_distribution(1,-1,[k,0],[0,0],mu)
             # println(io, "$(k),$(real(val)),$(imag(val))")
-            integral, err, prob, neval, fail, nregions  = odderon_distribution(1,-1,[k,0],[0,0];mu=mu,solver=solver)
+            integral, err, prob, neval, fail, nregions  = odderon_distribution(1, -1, [k,0], [0,0]; mu=mu, solver=solver)
             println(io, "$(k),$(integral[1]),$(integral[2]),$(err[1]),$(err[2]),$(prob[1]),$(prob[2]),$(neval),$(fail),$(nregions)")
             flush(io) 
         end
     end
 end
 
+"""
+    regulator_scan(solver::String)
+
+Write result of F2 form factor for |Δ| in [1e-6,3.3] GeV
+
+### Input
+
+- `solver` -- Integration strategy
+    - Either "cuhre", "vegas", "divonne", "suave"
+
+### Notes
+
+- Run over ssh using e.g.
+  nohup julia -e 'include("sivers.jl"); 
+  Sivers.write_f2_form_factor_to_csv()' > log.txt 2>&1 &
+"""
 function regulator_scan(solver::String)
-    # mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
-    mu_vals = [0.01,0.02,0.03,0.04,0.05]
+    mu_vals = [0.01, 0.02, 0.03, 0.04, 0.05]
     for mu in mu_vals
-        write_odderon_distribution_to_csv(mu,solver)
+        write_odderon_distribution_to_csv(mu, solver)
     end
 end
 
+"""
+    write_f1_form_factor_to_csv()
+
+Write result of F1 form factor for |Δ| in [0,3.3] GeV
+
+### Notes
+- Run over ssh using e.g.
+  nohup julia -e 'include("sivers.jl"); 
+  Sivers.write_f1_form_factor_to_csv()' > log.txt 2>&1 &
+"""
 function write_f1_form_factor_to_csv()
     open("output_f1.csv", "w") do io
         println(io, "k,val,err_real,err_imag")  # header
-        for Δ in 0.01:.125:3.3
+        for Δ in 0.0:.125:3.3
             val, err = f1_form_factor([Δ, 0])
             println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
             flush(io) 
@@ -753,6 +837,16 @@ function write_f1_form_factor_to_csv()
     end
 end
 
+"""
+    write_f2_form_factor_to_csv()
+
+Write result of F2 form factor for |Δ| in [1e-6,3.3] GeV
+
+### Notes
+- Run over ssh using e.g.
+  nohup julia -e 'include("sivers.jl"); 
+  Sivers.write_f2_form_factor_to_csv()' > log.txt 2>&1 &
+"""
 function write_f2_form_factor_to_csv()
     open("output_f2.csv", "w") do io
         println(io, "k,val,err_real,err_imag")  # header
@@ -771,287 +865,6 @@ function write_f_form_factor_to_csv()
             val, err = f_form_factor(1,-1,[Δ, 0])
             println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
             flush(io) 
-        end
-    end
-end
-
-#####################
-### To be removed ###
-#####################
-
-function write_f2_form_factor_mc_to_csv()
-    open("output_f2_mc.csv", "w") do io
-        println(io, "k,val,err_real,err_imag")  # header
-        for Δ in 0.001:.125:3.3
-            ΔL, ΔR, Δ2 = Δ, Δ, Δ^2
-            res_du = f_form_factor_mc(1,-1,[Δ,0];neval=1_000_000)
-            val_du = complex(res_du.mean[1], res_du.mean[2])        
-            err_du = [res_du.stdev[1], res_du.stdev[2]]   
-
-            res_ud = f_form_factor_mc(-1,1,[Δ,0];neval=1_000_000)
-            val_ud = complex(res_ud.mean[1], res_ud.mean[2])        
-            err_ud = [res_ud.stdev[1], res_ud.stdev[2]] 
-            
-            prf = 3 / (4π)^2 / (2π)^4
-            val = prf * 2 * mN^2 / Δ2 * (ΔL / mN * val_du - ΔR / mN * val_ud)
-            err_re = prf * 2 * mN / Δ * sqrt(err_du[1]^2 + err_ud[1]^2)
-            err_im = prf * 2 * mN / Δ * sqrt(err_du[2]^2 + err_ud[2]^2)
-            err = [err_re,err_im]
-            println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
-            flush(io)
-        end
-    end
-end
-
-function odderon_distribution_mc(   s01::Integer,s02::Integer,
-                                    k::Vector{<:Real},Δ::Vector{<:Real};
-                                    mu::Real=0.01,neval=100_000_000)
-    if !iszero(Δ)
-        throw(ArgumentError("Implementation currently only for vanishing Δ."))
-    end
-
-    function integrand(x,c)
-        # Transform [0,1]^8 cuba samples to physical variables
-        # Parton-x
-        (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
-        # Momenta
-        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])    # k1
-        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
-        r3, ϕ3, d2q2 = hp.cuba_to_polar(x[7:8])    # q2
-        
-        # Reconstruct cartesian momenta from polar coordinates
-        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
-        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
-        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
-        d4k = d2k1 * d2k2
-
-        q2 = [r3 * cos(ϕ3), r3 * sin(ϕ3)]
-        # Jacobian
-        d8x = d2x * d4k * d2q2 # 2 + 4 + 2 = 8d integral
-
-        total = complex(0,0)
-        for s in (+1,-1)
-            # Flip momenta to project out Sivers function
-            q1, q2, q3 = s * k, s * q2, - s * (k + q2)
-            # k1, k2, k3 = s * k1, s * k2, s * k3  
-            ccc = cubic_color_correlator(s01,s02,x1,x2,x3,q1,q2,q3,k1,k2,k3)
-            total += s * ccc
-        end
-        # Regenerate initial q2
-        q2 = [r3 * cos(ϕ3), r3 * sin(ϕ3)]
-        q3 = k + q2
-        q22 = sum(q2.^2)
-        q32 = sum(q3.^2)
-        # Add regulator
-        mu2 = mu^2
-        q22 += mu2
-        q32 += mu2
-        # Same denominator
-        # for both terms once momenta
-        # have been flipped
-        den = q22 * q32  
-        total *=  d8x / den
-
-        return (real(total), imag(total))
-    end
-    var = Continuous(0.0, 1.0)
-    result = integrate(integrand; var, dof = [[8,],[8,]], print=-1, solver=:vegas, neval = neval)
-    return result
-end
-
-function odderon_distribution_mc_v2(  s01::Integer,s02::Integer,
-                                k::Vector{<:Real},Δ::Vector{<:Real};
-                                mu::Real=0.01,neval=1_000_000)
-    if !iszero(Δ)
-        throw(ArgumentError("Implementation currently only for vanishing Δ."))
-    end
-
-    function integrand(x,c)
-        # Transform [0,1]^8 cuba samples to physical variables
-        # Parton-x
-        (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
-        # Momenta
-        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])    # k1
-        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
-        r3, ϕ3, d2q2 = hp.cuba_to_polar(x[7:8])    # q2
-        
-        # Reconstruct cartesian momenta from polar coordinates
-        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
-        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
-        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
-        d4k = d2k1 * d2k2
-
-        q2 = [r3 * cos(ϕ3), r3 * sin(ϕ3)]
-        # Jacobian
-        d8x = d2x * d4k * d2q2 # 2 + 4 + 2 = 8d integral
-
-        # Add regulator
-        mu2 = mu^2
-
-        total = complex(0,0)
-        for s in (+1,-1)
-            # Flip momenta to project out Sivers function
-            q1, q3 = s * k, - s * k - q2
-            q32 = sum(q3.^2)
-            q32 += mu2
-            # k1, k2, k3 = s * k1, s * k2, s * k3  
-            ccc = cubic_color_correlator(s01,s02,x1,x2,x3,q1,q2,q3,k1,k2,k3)
-            total += s * ccc / q32
-        end
-        q22 = sum(q2.^2)
-        q22 += mu2
-        total *=  d8x / q22
-
-        return (real(total), imag(total))
-    end
-    var = Continuous(0.0, 1.0)
-    result = integrate(integrand; var, dof = [[8,],[8,]], print=-1, solver=:vegas, neval = neval)
-    return result
-end
-
-function write_odderon_distribution_v2_to_csv(mu::Real)
-    open("output_v2_" * string(mu) * ".csv", "w") do io
-        println(io, "k,val,err_real,err_imag")  # header
-        for k in 0:0.1:1
-            # val = odderon_distribution(1,-1,[k,0],[0,0],mu)
-            # println(io, "$(k),$(real(val)),$(imag(val))")
-            val, err = odderon_distribution_v2(1,-1,[k,0],[0,0];mu)
-            println(io, "$(k),$(val),$(err[1]),$(err[2])")
-            flush(io) 
-        end
-    end
-end
-
-function regulator_scan_v2()
-    mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
-    for mu in mu_vals
-        write_odderon_distribution_v2_to_csv(mu)
-    end
-end
-
-function write_odderon_distribution_mc_to_csv(mu::Real,neval)
-    open("output_mc" * string(mu) * ".csv", "w") do io
-        println(io, "k,val,err_real,err_imag")   # header
-        for k in 0:0.1:1
-            res = odderon_distribution_mc(1, -1, [k, 0], [0, 0], mu=mu,neval=neval)
-            val = complex(res.mean[1], res.mean[2])        
-            err = [res.stdev[1], res.stdev[2]]   
-            prf = - dabc2 / Nc / 32 / ((4π)^2 * (2π)^6)
-            val *= prf
-            err .*= abs(prf)
-            println(io, "$(k),$(val),$(err[1]),$(err[2])")
-            flush(io)
-        end
-    end
-end
-
-function regulator_scan_mc()
-    mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
-    neval = 100_000_000
-    for mu in mu_vals
-        write_odderon_distribution_mc_to_csv(mu,neval)
-    end
-end
-
-function write_odderon_distribution_mc_v2_to_csv(mu::Real,neval)
-    open("output_mc_v2" * string(mu) * ".csv", "w") do io
-        println(io, "k,val,err_real,err_imag")   # header
-        for k in 0:0.1:1
-            res = odderon_distribution_mc_v2(1, -1, [k, 0], [0, 0]; mu=mu,neval=neval)
-            val = complex(res.mean[1], res.mean[2])        
-            err = [res.stdev[1], res.stdev[2]]   
-            prf = - dabc2 / Nc / 32 / ((4π)^2 * (2π)^6)
-            val *= prf
-            err .*= abs(prf)
-            println(io, "$(k),$(val),$(err[1]),$(err[2])")
-            flush(io)
-        end
-    end
-end
-
-function regulator_scan_mc_v2()
-    mu_vals = [0.0,0.01,0.02,0.03,0.04,0.05]
-    neval = 1_000_000
-    for mu in mu_vals
-        write_odderon_distribution_mc_v2_to_csv(mu,neval)
-    end
-end
-
-function f_form_factor_mc(s01::Integer,s02::Integer,Δ::Vector{<:Real}; neval::Integer=1_000_000)
-    eu, ed = 2/3, -1/3
-    charges = (eu,eu,ed)
-    function integrand(x,c)
-        (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
-        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])    # k1
-        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
-
-        # Reconstruct cartesian momenta from polar coordinates
-        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
-        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
-        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
-
-        # Jacobian
-        d4k = d2k1 * d2k2
-
-        total = complex(0,0)
-        wf1 = compute_wavefunction(s01,k1,k2,k3,x1,x2,x3)
-        # Sum over charge contributions
-        for (i,q) in enumerate(charges)
-            k1prime = k1 - x1 * Δ + hp.kronecker_delta(i,1) * Δ
-            k2prime = k2 - x2 * Δ + hp.kronecker_delta(i,2) * Δ
-            k3prime = k3 - x3 * Δ + hp.kronecker_delta(i,3) * Δ
-            wf2 = compute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
-            # Sum over spin contributions
-            total += q * spin_sum(wf1,wf2)
-        end
-        res = total * d4k * d2x
-        return (real(res), imag(res))
-    end
-
-    var = Continuous(0.0, 1.0)
-    result = integrate(integrand; var, dof = [[6,],[6,]], print=-1, solver=:vegas, neval = neval)
-    return result
-end
-
-"""
-    f1_form_factor_table(Δ_array)
-
-Compute an array of F1 form factor values using f1_form_factor([Δ, 0.0])
-where Δ is in Δ_array
-# Arguments
-- `Δ_array::Array`: Array of momentum transfer as scalars.
-    - Can have any length
-
-# Returns
-Values of the F1 form factor at the specified momentum transfers
-
-# Notes
-This function is parallelized. For parallelization to take effect one needs to
-set export JULIA_NUM_THREADS=n, with n the number of threads before starting the jupyter server.
-Didn't give a speed-up on my laptop.
-"""
-function f1_form_factor_table_csv(Δ_step::Real, Δ_max::Real)
-    println("Running with $(Threads.nthreads()) threads")
-    flush(stdout)
-
-    Δ_array = collect(0:Δ_step:Δ_max)
-    n = length(Δ_array)
-    results = Vector{ComplexF64}(undef, n)
-    errs = Vector{NTuple{2,Float64}}(undef, n)
-
-    println("[$(Dates.format(now(), "HH:MM:SS"))] Starting computation...")
-    flush(stdout)
-    @threads for i in 1:n
-        Δ = Δ_array[i]
-        results[i], errs[i] = f1_form_factor([Δ, 0.0])
-    end
-    println("[$(Dates.format(now(), "HH:MM:SS"))] Completed computation of $n points.")
-    flush(stdout)
-    open("output_f1_parallel.csv", "w") do io
-        println(io, "k,val_re,val_im,err_re,err_im")
-        for i in 1:n
-            println(io, "$(Δ_array[i]),$(real(results[i])),$(imag(results[i])),$(errs[i][1]),$(errs[i][2])")
-            flush(io)
         end
     end
 end
