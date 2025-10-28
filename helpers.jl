@@ -36,13 +36,15 @@ kronecker_delta(a, b) = a == b ? 1 : 0
 spin_index(s) = (s == -1) ? 1 : 2
 
 """
-    regulate_cuba(x)
+    regulate_cuba(::Vector{<:Real})
 
 Regulates the endpoints of [0,1]^n Cuba samples to avoid NaNs
-# Arguments
+### Arguments
+
 - `x::Vector{<:Real}`: [0,1]^n Cuba sample
 
-# Returns
+### Returns
+
 - `x::Vector{<:Real}`: Regulated values (x[i] +-= 1e-12 depending on the endpoint)
 """
 function regulate_cuba(x::Vector{<:Real})
@@ -59,14 +61,18 @@ end
 Performs the variable transformation from [0,1]^n 
 Cuba samples to parton-x with the condition
 1 - x[1] - ... - x[n] = 0 .
-# Arguments
+
+### Arguments
+
 - `x::Vector{<:Real}`: [0,1]^n Cuba sample
 
-# Returns
+### Returns
+
 - `x::Vector{<:Real}`: Parton-x values
 - `jac::Real`: Jacobian determinant
 
-# Notes
+### Notes
+
 Assumes integration over Dirac delta has already been carried out.
 """
 function cuba_to_parton_x(x::Vector{<:Real})
@@ -95,15 +101,18 @@ end
 
 Transform a Cuba sample `x ∈ [0,1]^2` into polar coordinates.
 
-# Arguments
+### Arguments
+
 - `x::Vector{<:Real}`: Sample point in the unit circle `[0,1]^2`.
 
-# Returns
+### Returns
+
 - `r::Real`: Radius
 - `ϕ::Real`: Azimuthal angle
 - `jac::Real`: Jacobian determinant of the transformation
 
-# Notes
+### Notes
+
 Throws an `ArgumentError` if called with `length(x) != 2`.
 """
 function cuba_to_polar(x::Vector{<:Real})
@@ -126,15 +135,18 @@ end
 
 Transform a Cuba sample `x ∈ [0,1]^n` into hyperspherical coordinates.
 
-# Arguments
+### Arguments
+
 - `x::Vector{<:Real}`: Sample point in the unit hypercube `[0,1]^n` with `n ≥ 2`.
 
-# Returns
+### Returns
+
 - `r::Real`: Radius
 - `angles::Vector{Real}`: Angular coordinates `[θ₁, θ₂, …, θ_{n-1}]`
 - `jac::Real`: Jacobian determinant of the transformation
 
-# Notes
+### Notes
+
 Throws an `ArgumentError` if called with `length(x) < 2`.
 """
 function cuba_to_hyperspherical(x::Vector{<:Real})
@@ -173,13 +185,16 @@ end
 Transform a cartesian input vector 'vec=[v_x,v_y]' to polar coordinates
 'vec_polar=[v_r,v_ϕ]'
 
-# Arguments
+### Arguments
+
 - `vec::Vector{<:Real}`: Cartesian input vector
 
-# Returns
+### Returns
+
 - `vec_polar::Vector{<:Real}`: Polar output vector
 
-# Notes
+### Notes
+
 Throws an `ArgumentError` if called with `length(vec) != 2`.
 """
 function cartesian_to_polar(vec::Vector{<:Real})
