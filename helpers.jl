@@ -4,16 +4,40 @@ export  kronecker_delta,
         spin_index, cuba_to_parton_x, 
         cuba_to_polar, cuba_to_hyperspherical
 
-# δ_ij
-kronecker_delta(a, b) = a == b ? 1 : 0
+""" 
+    kronecker_delta(a, b)
+Kronecker delta function.
 
-# Map spin -1 (+1) to index 1 (2)
-spin_index(s) = (s == -1) ? 1 : 2
+### Arguments
+
+- `a::Real`: First argument
+- `b::Real`: Second argument  
+
+### Returns
+
+- `1` if `a == b`, else `0`
+"""
+kronecker_delta(a::Real, b::Real) = a == b ? 1 : 0
+
+""" 
+    spin_index(s)
+Maps spin values -1 and +1 to indices 1 and 2, respectively.
+
+### Arguments
+
+- `s::Integer`: Spin value (-1 or +1)
+
+### Returns
+
+- `index::Integer`: Corresponding index (1 or 2)
+"""
+spin_index(s::Integer) = (s == -1) ? 1 : 2
 
 """
     regulate_cuba(::Vector{<:Real})
 
 Regulates the endpoints of [0,1]^n Cuba samples to avoid NaNs
+
 ### Arguments
 
 - `x::Vector{<:Real}`: [0,1]^n Cuba sample

@@ -23,8 +23,7 @@ import .Helpers as hp
 
 ###################
 
-export  hp, lc_cqm, 
-        f1_form_factor,
+export  f1_form_factor,
         f2_form_factor,
         f_form_factor,
         cubic_color_correlator, 

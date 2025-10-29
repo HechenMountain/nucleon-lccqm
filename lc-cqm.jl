@@ -23,9 +23,10 @@ export spin_wavefunction,
        normalize_wavefunction
 
 # All possible proton and constituent quark spin configurations
-# Eq.(22) and (23) in the draft
+# Eq.(31) to (38) in the reference above, or Eq.(22) and (23) in the draft
 # Maps spin tuple with externally assigned 
 # kinematical parameters to expression
+# Spin flip obtained by flippng sign of k_{L,R} and overall sign
 const SPIN_MAP = Dict{NTuple{4, Int}, Function}(
     # s0 = +1
     (+1, +1, +1, -1) => (a1,a2,a3,k1L,k1R,k2L,k2R,k3L,k3R) ->  2a1*a2*a3 + a1*k2L*k3R + k1L*a2*k3R,
