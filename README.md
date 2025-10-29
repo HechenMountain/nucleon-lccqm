@@ -1,11 +1,10 @@
 # sivers.jl
 
-**A julia module to compute the gluon Sivers function at large x** 
+**A julia module to compute the gluon Sivers function in a light-cone constituent quark model** 
 ## About
-This code is intended for use in a jupyter notebook also work in a julia repl. We parametrize the baryon wavefunction in terms of its valence quark content, which is a valid approximation at large parton x. The cubic color corellator is explicitly computed and evaluated for specific values of the momentum transfer to obtained the gluon Sivers function.
+We parametrize the light-cone baryon wavefunction in terms of its valence quark content. Truncating the Fock space at the minimum Fock sector of three quarks, we compute the electromagnetic Dirac and Pauli form factors and find excellent agreement with the data, and in particular the anomalous magnetic moment is found to be F_2(0) = 1.82. We then obtain the cubic color corellator and after integrating it over the eikonal momenta, the gluon Sivers function at non-vanishing transverse momentum transfer.
 
 ## 📦 Features
-- Large-x gluon Sivers function
 - Different parameter sets can be used and are specifed in parameters.jl
 
 ## 🛠 Installation

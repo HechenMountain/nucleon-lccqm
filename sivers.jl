@@ -4,10 +4,10 @@ using Base: pi
 # Integration
 using Cuba
 
-BasePath = @__DIR__
-ParametersPath = joinpath(BasePath,"parameters.jl")
-HelpersPath = joinpath(BasePath,"helpers.jl")
-LCQMPath = joinpath(BasePath,"lc-cqm.jl")
+const BasePath = @__DIR__
+const ParametersPath = joinpath(BasePath,"parameters.jl")
+const HelpersPath = joinpath(BasePath,"helpers.jl")
+const LCQMPath = joinpath(BasePath,"lc-cqm.jl")
 
 # Parameters handled separately
 include(ParametersPath)
@@ -35,10 +35,10 @@ export  f1_form_factor,
         write_odderon_distribution_range_to_csv
 
 # Parameters and SU(Nc) algebra set in parameters.jl
-alpha_s = params.alpha_s ;
-Nc = params.Nc ;
-mN = params.mN ;
-dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc ;
+const alpha_s = params.alpha_s ;
+const Nc = params.Nc ;
+const mN = params.mN ;
+const dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc ;
 
 ####################
 ### Form factors ###
@@ -454,8 +454,6 @@ function write_odderon_distribution_to_csv(mu::Real, solver::String="cuhre")
     open(filename, "w") do io 
         println(io, "k,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions")  # header
         for k in 0:0.01:1.25
-            # val = odderon_distribution(1,-1,[k,0],[0,0],mu)
-            # println(io, "$(k),$(real(val)),$(imag(val))")
             integral, err, prob, neval, fail, nregions  = odderon_distribution(1, -1, [k,0], [0,0]; mu=mu, solver=solver)
             println(io, "$(k),$(integral[1]),$(integral[2]),$(err[1]),$(err[2]),$(prob[1]),$(prob[2]),$(neval),$(fail),$(nregions)")
             flush(io) 
@@ -499,13 +497,12 @@ Write result of odderon_distribution for |k| in [kmin,kmax] GeV in steps of kste
 - `solver`  -- (optional, default =`"cuhre`) Integration strategy
               - Either "cuhre", "vegas", "divonne", "suave"
 """
-function write_odderon_distribution_range_to_csv(kmin::Real, kstep::Real, kmax::Real, mu::Real, solver::String="cuhre")
+function write_odderon_distribution_range_to_csv(kmin::Real, kstep::Real, kmax::Real,
+                                                 mu::Real, solver::String="cuhre")
     filename = "output_$(solver)_$(mu)_$(kmin)_$(kmax).csv"
     open(filename, "w") do io 
         println(io, "k,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions")  # header
         for k in kmin:kstep:kmax
-            # val = odderon_distribution(1,-1,[k,0],[0,0],mu)
-            # println(io, "$(k),$(real(val)),$(imag(val))")
             integral, err, prob, neval, fail, nregions  = odderon_distribution(1, -1, [k,0], [0,0]; mu=mu, solver=solver)
             println(io, "$(k),$(integral[1]),$(integral[2]),$(err[1]),$(err[2]),$(prob[1]),$(prob[2]),$(neval),$(fail),$(nregions)")
             flush(io) 
