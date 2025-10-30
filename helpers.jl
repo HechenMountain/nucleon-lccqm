@@ -1,19 +1,27 @@
 module Helpers
 
+# ======================
+# Export
+# ======================
+
 export  kronecker_delta,
         spin_index, cuba_to_parton_x, 
         cuba_to_polar, cuba_to_hyperspherical
+
+# ======================
+# Functions
+# ======================
 
 """ 
     kronecker_delta(a, b)
 Kronecker delta function.
 
-### Arguments
+# Arguments
 
 - `a::Real`: First argument
 - `b::Real`: Second argument  
 
-### Returns
+# Returns
 
 - `1` if `a == b`, else `0`
 """
@@ -23,11 +31,11 @@ kronecker_delta(a::Real, b::Real) = a == b ? 1 : 0
     spin_index(s)
 Maps spin values -1 and +1 to indices 1 and 2, respectively.
 
-### Arguments
+# Arguments
 
 - `s::Integer`: Spin value (-1 or +1)
 
-### Returns
+# Returns
 
 - `index::Integer`: Corresponding index (1 or 2)
 """
@@ -38,11 +46,11 @@ spin_index(s::Integer) = (s == -1) ? 1 : 2
 
 Regulates the endpoints of [0,1]^n Cuba samples to avoid NaNs
 
-### Arguments
+# Arguments
 
 - `x::Vector{<:Real}`: [0,1]^n Cuba sample
 
-### Returns
+# Returns
 
 - `x::Vector{<:Real}`: Regulated values (x[i] +-= 1e-12 depending on the endpoint)
 """
@@ -61,18 +69,16 @@ Performs the variable transformation from [0,1]^n
 Cuba samples to parton-x with the condition
 1 - x[1] - ... - x[n] = 0 .
 
-### Arguments
+# Arguments
 
 - `x::Vector{<:Real}`: [0,1]^n Cuba sample
 
-### Returns
-
+# Returns
 - `x::Vector{<:Real}`: Parton-x values
 - `jac::Real`: Jacobian determinant
 
-### Notes
-
-Assumes integration over Dirac delta has already been carried out.
+# Notes
+- Assumes integration over Dirac delta has already been carried out.
 """
 function cuba_to_parton_x(x::Vector{<:Real})
     n = length(x) + 1 
@@ -100,19 +106,16 @@ end
 
 Transform a Cuba sample `x ∈ [0,1]^2` into polar coordinates.
 
-### Arguments
-
+# Arguments
 - `x::Vector{<:Real}`: Sample point in the unit circle `[0,1]^2`.
 
-### Returns
-
+# Returns
 - `r::Real`: Radius
 - `ϕ::Real`: Azimuthal angle
 - `jac::Real`: Jacobian determinant of the transformation
 
-### Notes
-
-Throws an `ArgumentError` if called with `length(x) != 2`.
+# Notes
+- Throws an `ArgumentError` if called with `length(x) != 2`.
 """
 function cuba_to_polar(x::Vector{<:Real})
     n = length(x)            
@@ -134,19 +137,16 @@ end
 
 Transform a Cuba sample `x ∈ [0,1]^n` into hyperspherical coordinates.
 
-### Arguments
-
+# Arguments
 - `x::Vector{<:Real}`: Sample point in the unit hypercube `[0,1]^n` with `n ≥ 2`.
 
-### Returns
-
+# Returns
 - `r::Real`: Radius
 - `angles::Vector{Real}`: Angular coordinates `[θ₁, θ₂, …, θ_{n-1}]`
 - `jac::Real`: Jacobian determinant of the transformation
 
-### Notes
-
-Throws an `ArgumentError` if called with `length(x) < 2`.
+# Notes
+- Throws an `ArgumentError` if called with `length(x) < 2`.
 """
 function cuba_to_hyperspherical(x::Vector{<:Real})
     n = length(x)            
@@ -184,17 +184,14 @@ end
 Transform a cartesian input vector 'vec=[v_x,v_y]' to polar coordinates
 'vec_polar=[v_r,v_ϕ]'
 
-### Arguments
-
+# Arguments
 - `vec::Vector{<:Real}`: Cartesian input vector
 
-### Returns
-
+# Returns
 - `vec_polar::Vector{<:Real}`: Polar output vector
 
-### Notes
-
-Throws an `ArgumentError` if called with `length(vec) != 2`.
+# Notes
+- Throws an `ArgumentError` if called with `length(vec) != 2`.
 """
 function cartesian_to_polar(vec::Vector{<:Real})
     if length(vec) != 2
@@ -206,4 +203,5 @@ function cartesian_to_polar(vec::Vector{<:Real})
     return [r, ϕ]
 end
 
+# ======================
 end # module

@@ -2,18 +2,33 @@ module LC_CQM
 
 # Contains wavefunction related code for the 
 # light-cone constituent quark model (LC-CQM)
-# of https://arxiv.org/pdf/0806.2298
+# of https://arxiv.org/pdf/0806.2298, 
+# see also references 11-18 therein.
+
 # Parameters are defined in parameters.jl
 # Helpers are defined in helpers.jl
+
+# ======================
+# Imports
+# ======================
 
 BasePath = @__DIR__
 HelpersPath = joinpath(BasePath, "helpers.jl")
 ParametersPath = joinpath(BasePath, "parameters.jl")
 
+# Integration
+using Cuba
+
+# Helpers, coordinate transformations, etc.
 include(HelpersPath)
 import .Helpers as hp
+# Parameters and SU(Nc) algebra set in parameters.jl
 include(ParametersPath)
 import .Parameters: params
+
+# ======================
+# Exports
+# ======================
 
 export spin_wavefunction,
        momentum_space_wavefunction,
@@ -48,9 +63,10 @@ const SPIN_MAP = Dict{NTuple{4, Int}, Function}(
     (-1, +1, +1, +1) => (a1,a2,a3,k1L,k1R,k2L,k2R,k3L,k3R) -> - (-a1*k2L*k3L - k1L*a2*k3L + 2k1L*k2L*a3),
 );
 
-#####################
-### Wavefunctions ###
-#####################
+# ======================
+# Wavefunctions
+# ======================
+
 
 """
     spin_wavefunction(s0::Integer,
@@ -59,22 +75,19 @@ const SPIN_MAP = Dict{NTuple{4, Int}, Function}(
                       x1::Real, x2::Real, x3::Real)
 
 Spin dependence of baryon wavefunction obtained from Clebsch-Gordan coefficients.
-0 refers to proton, 1-3 are valence quark indices
-### Input
+Index 0 refers to proton, 1-3 are valence quark indices
 
-- `s0, s1, s2, s3`  -- Spin indices of proton and valence quarks. Either +1 or -1
-- `k1, k2, k3`      -- Momenta of valence quarks
-                       - 2d real vectors
-- `x1, x2, x3`      -- Parton x of valence quarks
-                       - Must be in [0,1]
+#  Arguments
+- `s0`: Spin of the proton (must be either +1 or -1)
+- `s1, s2, s3`: Spins of the valence quarks (must be either +1 or -1)
+- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
+- `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
 
-### Output
+# Returns
+- `wf::ComplexF64`: Value of spin wavefunction
 
-Value of spinor wavefunction
-
-### Notes
-
-Momenta should be cartesian.
+# Notes
+- Momenta must be in cartesian coordinates
 """
 function spin_wavefunction(s0::Integer,
                            s1::Integer, s2::Integer, s3::Integer,
@@ -109,20 +122,15 @@ end
 
 Momentum dependence of baryon wavefunction
 
-### Input
+# Arguments
+- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
+- `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
 
-- `k1, k2, k3 -- Momenta of valence quarks
-                 - 2d real vectors
-- `x1, x2, x3 -- Parton x of valence quarks
-                 - Must be in [0,1]
-
-### Output
-
+# Returns
 Value of momentum space wavefunction
 
-### Notes
-
-Momenta should be cartesian.
+# Notes
+- Momenta should be cartesian.
 """
 function momentum_space_wavefunction(k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
                                      x1::Real, x2::Real, x3::Real)
@@ -132,7 +140,8 @@ function momentum_space_wavefunction(k1::Vector{<:Real}, k2::Vector{<:Real}, k3:
 
     mq2 = mq^2
     m02 = (sum(k1.^2) + mq2) / x1 + (sum(k2.^2) + mq2) / x2 + (sum(k3.^2) + mq2) / x3
-    return exp(-m02 / (2 * β^2))
+    ms_wf = exp(-m02 / (2 * β^2))
+    return ms_wf
 end
 
 """
@@ -142,21 +151,16 @@ end
                         x1::Real, x2::Real, x3::Real)
 Compute product of spinor and momentum space wave function.
 
-### Input
+# Arguments
+- `s0`: Spin of the proton (must be either +1 or -1)
+- `s1, s2, s3`: Spins of the valence quarks (must be either +1 or -1)
+- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
+- `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
 
-- `s0, s1, s2, s3 -- Spin indices of proton and valence quarks. 
-                     - Must be either +1 or -1
-- `k1, k2, k3`    -- Momenta of valence quarks
-                     - 2d real vectors
-- `x1, x2, x3` -- Parton x of valence quarks
-                  - Must be in [0,1]
+# Returns
+- `wf::ComplexF64`: Value of baryon wavefunction
 
-### Output
-
-Value of baryon wavefunction
-
-### Notes
-
+# Notes
 - 0 refers to proton, 1-3 are valence quark indices
 - Normalization carried out in f_form_factor and odderon_distribution later on
 - Momenta should be cartesian.
@@ -178,23 +182,17 @@ end
 
 Precompute wavefunction and write index combinatioons to array.
 
-### Input
+# Arguments
+- `s0`: Spin of the proton (must be either +1 or -1)
+- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
+- `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
 
-- `s`          -- Spin index of proton.
-                  - Must be either +1 or -1
-- `k1, k2, k3` -- Momenta of valence quarks
-                  - 2d real vectors
-- `x1, x2, x3` -- Parton x of valence quarks
-                  - Must be in [0,1]
+# Returns
+-`wf::Array{ComplexF64, 3}`: Value of norm of baryon wavefunction. To be set in parameters.jl
 
-### Output
-
-Value of norm of baryon wavefunction. To be set in parameters.jl
-
-### Notes
-
-The indices 1 (-1) of the valence quarks are mapped to 1 (2) 
-such that the wavefunction is accessed as e.g. wf[1,2,1]
+# Notes
+- The indices 1 (-1) of the valence quarks are mapped to array indices 1 (2) 
+  such that the wavefunction is accessed as e.g. wf[1,2,1]
 """
 function compute_wavefunction(s::Integer,
                               k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
@@ -213,17 +211,15 @@ end
 
 Carries out the spin sum over 2 wavefunctions.
 
-### Input
-- `wf1,wf2` -- Baryon wavefunctions
-               - Must be array with 2^3 entries
+# Arguments
+- `wf1,wf2::Array{ComplexF64, 3}`: Baryon wavefunctions
 
-### Output
-Value of ∑conj(wf2) * wf1
+# Returns
+- `total::ComplexF64`: Value of ∑conj(wf2) * wf1
 
-### Notes
-
-The wavefunctions wf1, wf2 passed to this object need to be in array form
-as generated by compute_wavefunction.
+# Notes
+- The wavefunctions wf1, wf2 passed to this object need to be in array form
+  as generated by compute_wavefunction.
 """
 # Wrapper for spin sum
 function spin_sum(wf1::Array{ComplexF64, 3},wf2::Array{ComplexF64, 3})
@@ -241,11 +237,12 @@ end
 
 Normalize the baryon wave function with parameters defined in parameters.jl
 
-### Output
-Value of norm of baryon wavefunction and errors. To be set in parameters.jl
+# Returns
+- `norm::Float64`: Value of norm of baryon wavefunction and errors. To be set in parameters.jl afterwards
+- `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
 
-### Notes
-- Cuba samples are regulate to avoid endpoint singularities
+# Notes
+- Cuba samples are regulated to avoid endpoint singularities
 - Summation is done inside the integrand such that cuhre is only called once.
 """
 function normalize_wavefunction()
@@ -281,9 +278,13 @@ function normalize_wavefunction()
     # integral, err = vegas(integrand, 6, 2; maxevals=10_000_000)
     # Multiply with prefactors from integration
     result = 1 / (4π)^2 / (2π)^4 * complex(integral[1], integral[2])
+    if imag(result) > 1e-6
+        @warn "Large imaginary part in wavefunction normalization: $(imag(result))"
+    end
     # Return norm
-    norm = 1 / sqrt(result)
+    norm = 1 / sqrt(real(result))
     return norm, err
 end
 
+# ======================
 end # module LC_CQM

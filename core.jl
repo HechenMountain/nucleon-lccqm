@@ -1,4 +1,11 @@
 module Sivers
+# Main module for computing the gluon Sivers function
+# Parameters are defined in parameters.jl
+# Helpers are defined in helpers.jl
+
+# ======================
+# Imports
+# ======================
 
 using Base: pi
 # Integration
@@ -16,23 +23,24 @@ using .Parameters: params
 # Light-cone constituent quark model wavefunctions
 include(LCQMPath)
 import .LC_CQM as wfs
+# Load into namespace for export
+normalize_wavefunction = wfs.normalize_wavefunction
 
 # Helpers, coordinate transformations, etc.
 include(HelpersPath)
 import .Helpers as hp
 
-###################
+# ======================
+# Exports
+# ======================
 
-export  f1_form_factor,
+export  normalize_wavefunction,
+        f1_form_factor,
         f2_form_factor,
         f_form_factor,
         cubic_color_correlator, 
         odderon_distribution,
-        regulator_scan,
-        write_f1_form_factor_to_csv,
-        write_f2_form_factor_to_csv,
-        write_odderon_distribution_to_csv,
-        write_odderon_distribution_range_to_csv
+        gluon_sivers
 
 # Parameters and SU(Nc) algebra set in parameters.jl
 const alpha_s = params.alpha_s ;
@@ -40,31 +48,31 @@ const Nc = params.Nc ;
 const mN = params.mN ;
 const dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc ;
 
-####################
-### Form factors ###
-####################
+# ======================
+# Form Factors
+# ======================
 
 """
     f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
 
-Compute the F-type form factor needed to generate F1 and F2
+Compute the F-type form factor needed to generate F1 and F2.
 
-### Input
+# Arguments
+- `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
+- `Δ`: 2D momentum transfer vector in cartesian coordinates
 
-- `s01, s02` -- Spins of the external protons
-                - Must be either +1 or -1
-- `Δ`        -- Momentum transfer
-                - 2d real vector
+# Returns
+- `integral::Vector{Float64}`: Array [re, im] containing real and imaginary parts of the form factor
+- `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
+- `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
+- `neval::Int64`: Number of integrand evaluations
+- `fail::Int32`: Integration failure flag (0 = success)
+- `nregions::Int32`: Number of subregions used in the integration
 
-### Output
-
-Value of the F-type form factor for a given momentum transfer
-
-### Notes
-
-- norm is set in parameters.jl and can be obtained from normalize_wavefunction(). 
-- Spin sums etc. are performed inside integrand, then cuhre is used once.
-- Momenta need to be cartesian
+# Notes
+- `norm` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
+- Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
+- Momenta must be in cartesian coordinates
 """
 function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
     eu, ed = 2/3, -1/3
@@ -102,34 +110,34 @@ function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
     # Call cuhre with ncomp=2 to track real and imaginary parts separately
     integral, err, prob, neval, fail, nregions = cuhre(integrand, 6, 2; maxevals=10_000_000)
     # integral, err = vegas(integrand, 6, 2; maxevals=10_000_000)
-    # Reconstruct complex result and
-    # multiply with prefactors from integration
+    # Apply prefactors to integration results
     norm = params.norm
     prf = 3 / (4π)^2 / (2π)^4 * norm^2
-    result = prf * complex(integral[1], integral[2])
+    integral .*= prf
     err .*= prf
-    return result, err, prob, neval, fail, nregions
+    return integral, err, prob, neval, fail, nregions
 end
 
 """
     f1_form_factor(Δ::Vector{<:Real})
 
-Compute the F1 form factor
+Compute the F1 form factor.
 
-### Input
+# Arguments
+- `Δ`: 2D momentum transfer vector in cartesian coordinates
 
-- `Δ` -- Momentum transfer
-         - 2d real vector
+# Returns
+- `result::Vector{Float64}`: Array [re, im] containing real and imaginary parts of the F1 form factor
+- `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
+- `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
+- `neval::Int64`: Number of integrand evaluations
+- `fail::Int32`: Integration failure flag (0 = success)
+- `nregions::Int32`: Number of subregions used in the integration
 
-### Output
-
-Value of the F1 form factor for a given momentum transfer
-
-### Notes
-
-- norm is set in parameters.jl and can be obtained from normalize_wavefunction()
-- Spin sums etc. are performed inside integrand, then cuhre is used once.
-- Momenta need to be cartesian
+# Notes
+- `norm` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
+- Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
+- Momenta must be in cartesian coordinates
 """
 function f1_form_factor(Δ::Vector{<:Real})
     result, err, prob, neval, fail, nregions = f_form_factor(1, 1, Δ)
@@ -139,22 +147,23 @@ end
 """
     f2_form_factor(Δ::Vector{<:Real})
 
-Compute the F2 form factor
+Compute the F2 form factor.
 
-### Input
+# Arguments
+- `Δ`: 2D momentum transfer vector in cartesian coordinates
 
-- `Δ` -- Momentum transfer
-         - 2d real vector
+# Returns
+- `integral::Vector{Float64}`: Array [re, im] containing real and imaginary parts of the F2 form factor
+- `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
+- `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
+- `neval::Int64`: Number of integrand evaluations
+- `fail::Int32`: Integration failure flag (0 = success)
+- `nregions::Int32`: Number of subregions used in the integration
 
-### Output
-
-Value of the F2 form factor for a given momentum transfer
-
-### Notes
-
-- norm is set in parameters.jl and can be obtained from normalize_wavefunction()
-- Spin sums etc. are performed inside integrand, then cuhre is used once.
-- Momenta need to be cartesian
+# Notes
+- `norm` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
+- Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
+- Momenta must be in cartesian coordinates
 """
 function f2_form_factor(Δ::Vector{<:Real})
     ΔL, ΔR = complex(Δ[1], -Δ[2]) , complex(Δ[1], Δ[2]) 
@@ -163,16 +172,20 @@ function f2_form_factor(Δ::Vector{<:Real})
     fdu, err_du, prob, neval, fail, nregions = f_form_factor(1, -1, Δ)
     fud, err_ud, = f_form_factor(-1, 1, Δ)
 
-    result = mN^2 / Δ2 * (ΔL / mN * fdu - ΔR / mN * fud)
-    # imaginary part cancels
+    # Calculate real and imaginary parts separately
+    # fdu and fud are arrays with [re, im] parts
+    prf = mN / Δ2
+    result_re = mN^2 / Δ2 * (ΔL / mN * fdu[1] - ΔR / mN * fud[1])
+    result_im = mN^2 / Δ2 * (ΔL / mN * fdu[2] - ΔR / mN * fud[2])
     err_re = mN / sqrt(Δ2) * sqrt(err_du[1]^2 + err_ud[1]^2)
     err_im = mN / sqrt(Δ2) * sqrt(err_du[2]^2 + err_ud[2]^2)
-    return result, [err_re, err_im], prob, neval, fail, nregions
+    
+    return [result_re, result_im], [err_re, err_im], prob, neval, fail, nregions
 end
 
-###########################
-###     Distributions   ###
-###########################
+# ======================
+# Distributions
+# ======================
 
 """
     cubic_color_correlator(s01::Integer,s02::Integer,
@@ -182,24 +195,19 @@ end
 
 Compute the unintegrated cubic color correlator by summing one-, two-, and three-body contributions.
 
-### Input
+# Arguments
+- `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
+- `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
+- `q1, q2, q3`: Eikonal momenta (2D cartesian vectors)
+- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 
-- `s01, s02`    -- Spins of the external protons
-                   - Must be either +1 or -1
-- `x1, x2, x3`  -- Parton-x values
-                   - (1 - x1 -x2 - x3) = 0
-- 'q1, q2, q3'  -- Eikonal momenta
-                   - 2d real vectors
-- 'k1, k2, k3'  -- Transverse momenta
-                   - 2d real vectors
+# Returns
+- `ccc::ComplexF64`: 'Value of the cubic color correlator for the given spin configuration and kinematics
 
-### Output
-
-- Value of the cubic color correlator for the given spin configuration and kinematics
-
-### Notes
-
-This is G_3ΛΛ' stripped of the integrals and factor of  1 / (4π)^2 / (2π)^2  in the draft
+# Notes
+- This is G_3ΛΛ' stripped of the integrals and factor of 1/(4π)^2/(2π)^2 in the draft
+- Momenta must be in cartesian coordinates
+- We enforce the symmetry in the k integration to get a simpler integrand
 """
 function cubic_color_correlator(s01::Integer,s02::Integer,
                                 x1::Real, x2::Real, x3::Real,
@@ -242,7 +250,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
     Δ = - (q1 + q2 + q3)
     k1prime0, k2prime0, k3prime0 = k1 - x1 * Δ, k2 - x2 * Δ, k3 - x3 * Δ
     # Sum over one-body, two-body and three-body kinematics
-    total = complex(0,0)
+    ccc = complex(0,0)
     # One-body
     for j123 in 1:3
         k1prime = k1prime0 - one_body_kin(1, j123, q1, q2, q3)
@@ -250,7 +258,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         k3prime = k3prime0 - one_body_kin(3, j123, q1, q2, q3)
         wf2 = wfs.compute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
         # Perform spin sum
-        total += wfs.spin_sum(wf1, wf2)
+        ccc += wfs.spin_sum(wf1, wf2)
     end
     # Two-body
     # Addtional terms from permutations, so we have an extra sum over k
@@ -263,7 +271,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         k3prime = k3prime0 - two_body_kin(3, j12, j3, l, q1, q2, q3)
         wf2 = wfs.compute_wavefunction(s02, k1prime, k2prime, k3prime, x1, x2, x3)
         # Perform spin sum
-        total += wfs.spin_sum(wf1, wf2)
+        ccc += wfs.spin_sum(wf1, wf2)
     end
     # Three-body
     for j1 in 1:3, j2 in 1:3, j3 in 1:3
@@ -275,45 +283,43 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         k3prime = k3prime0 - three_body_kin(3, j1, j2, j3, q1, q2, q3)
         wf2 = wfs.compute_wavefunction(s02, k1prime, k2prime, k3prime, x1, x2, x3)
         # Perform spin sum
-        total += wfs.spin_sum(wf1, wf2)
+        ccc += wfs.spin_sum(wf1, wf2)
     end
-    return total
+    return ccc
 end
 
 """
     odderon_distribution(s01::Integer,s02::Integer,
                          k::Vector{<:Real},Δ::Vector{<:Real};
-                         [mu]::Real=0.01,[solver]::String="cuhre")
+                         mu::Real=0.00,solver::String="vegas")
 
-Compute the Odderon distribution O * k^2 for momentum transfer k and Δ
+Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 
-### Input
+# Arguments
+- `s01, s02`: Spin of ingoing/outgoing proton (each must be either +1 or -1)
+- `k`: 2D transverse momentum transfer vector in cartesian coordinates
+- `Δ`: 2D momentum transfer vector in cartesian coordinates
+- `mu`: Regulator for integrand (default: 0.00)
+- `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
 
-- `s01, s02` -- Spins of the external protons
-                - Must be either +1 or -1
-- `k`        -- Transverse momentum transfer
-                - 2d real vector
-- `Δ`        -- Total momentum transfer
-                - 2d real vector
-- `mu`       -- (optional, default: `0.01`) Regulator for integrand
-- `solver`   -- (optional, default: `"cuhre"`) Integration strategy
-                - Either "cuhre", "vegas", "divonne", "suave"
+# Returns
+- `integral::Vector{Float64}`: Array [re, im] containing real and imaginary parts of O(k,Δ) * k^2
+- `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
+- `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
+- `neval::Int64`: Number of integrand evaluations
+- `fail::Int32`: Integration failure flag (0 = success)
+- `nregions::Int32`: Number of subregions used in the integration
 
-### Output
-
-Value of the the Odderon distribution times k^2 at k and Δ.
-
-### Notes
-- For now this expression is only valid for Δ = [0,0].
-  Corresponds to OΛΛ'(k,Δ) in the draft.
-- We drop the 1 / k^2 and add it later in the definition of the sivers function. 
-- Supplied momenta should be cartesian.
-- norm is set in parameters.jl and can be obtained from normalize_wavefunction(). 
-- As for f_form_factor with s01 = - s02, the result is in general complex. For k_y = 0 it is real.
+# Notes
+- Currently only valid for Δ = [0,0], corresponds to OΛΛ'(k,Δ) in the draft
+- Factor 1/k^2 is omitted here and added later in the Sivers function definition
+- Momenta must be in cartesian coordinates
+- `norm` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
+- Result is generally complex; for k_y = 0 it is real
 """
 function odderon_distribution(s01::Integer, s02::Integer,
                               k::Vector{<:Real}, Δ::Vector{<:Real};
-                              mu::Real=0.01, solver::String="cuhre")
+                              mu::Real=0.00, solver::String="vegas")
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
@@ -387,183 +393,43 @@ function odderon_distribution(s01::Integer, s02::Integer,
 end
 
 """
-    gluon_sivers(k::Real;mu::Real=0.01,solver::String="cuhre")
+    gluon_sivers(k::Real;mu::Real=0.00,solver::String="vegas")
 
-Compute the gluon Sivers function for momentum transfer k
+Compute the gluon Sivers function for momentum transfer k.
 
-### Input
+# Arguments
+- `k`: Modulus of transverse momentum transfer
+- `mu`: Regulator for integrand (default: 0.01)
+- `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
 
-- `k`       -- Modulus of transverse momentum transfer
-- `Δ`       -- Total momentum transfer
-               - 2d real vector
-- `mu`      -- Regulator for integrand
-- `solver`  -- (optional, default =`"cuhre`) Integration strategy
-               - Either "cuhre", "vegas", "divonne", "suave"
+# Returns
+- `result::Vector{Float64}`: Array [re, im] containing real and imaginary parts of the gluon Sivers function f_{1T}^{⊥ g}(x,k)
+- `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
+- `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
+- `neval::Int64`: Number of integrand evaluations
+- `fail::Int32`: Integration failure flag (0 = success)
+- `nregions::Int32`: Number of subregions used in the integration
 
-### Output
-
-- Value of the gluon Sivers function at k
-
-### Notes
-- Assumes that 2d k vector is [kx, 0]. For k not along x,
-  one would need to compute both s01, s02 = 1, -1 and -1, 1 and sum
-  similarly to f2_form_factor.
+# Notes
+- Assumes the 2D k_T vector is [kx, 0]
+- For k not along x, one would need to compute both (s01, s02) = (1, -1) and (-1, 1) 
+  and sum them similar to `f2_form_factor`
+- Result is real but we keep the imaginary part for consistency
 """
-function gluon_sivers(k::Real; mu::Real=0.01, solver::String="cuhre")
+function gluon_sivers(k::Real; mu::Real=0.00, solver::String="vegas")
     # Spin flip
     s01 = 1
     s02 = -1
     # Zero momentum transfer
     Δ = [0,0]
 
-    odderon_dist, = odderon_distribution(s01, s02, [k,0], Δ; mu=mu, solver=solver)
-    # 1 / k^2 partially cancels with Odderon distribution
-    k_perp = k[1]
-    # Regulate singularity
-    if k_perp == 0
-        k_perp = 1e-12
-    end
-    prf = - 8 * mN * Nc / π * alpha_s^2 / k[1]
+    odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, [k,0], Δ; mu=mu, solver=solver)
+    # 1 / k^2 partially cancels with definition of Sivers function
+    prf = 8 * mN * Nc / π * alpha_s^2 / k
     result = prf * odderon_dist
-    return result
+    err .*= abs(prf)
+    return result, err, prob, neval, fail, nregions
 end
 
-#################
-### Write out ###
-#################
-
-"""
-    write_odderon_distribution_to_csv(mu::Real, [solver]::String="cuhre")
-
-Write result of odderon_distribution for |k| in [0,2] GeV
-
-### Input
-
-- `mu`      -- Regulator for integration
-- `solver`  -- (optional, default =`"cuhre`) Integration strategy
-              - Either "cuhre", "vegas", "divonne", "suave"
-
-### Notes
-
-- Run over ssh using e.g.
-  nohup julia -e 'include("sivers.jl"); 
-  Sivers.write_odderon_distribution_to_csv(mu)' > log.txt 2>&1 &
-"""
-function write_odderon_distribution_to_csv(mu::Real, solver::String="cuhre")
-    filename = "output_$(solver)_$(mu).csv"
-    open(filename, "w") do io 
-        println(io, "k,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions")  # header
-        for k in 0:0.01:1.25
-            integral, err, prob, neval, fail, nregions  = odderon_distribution(1, -1, [k,0], [0,0]; mu=mu, solver=solver)
-            println(io, "$(k),$(integral[1]),$(integral[2]),$(err[1]),$(err[2]),$(prob[1]),$(prob[2]),$(neval),$(fail),$(nregions)")
-            flush(io) 
-        end
-    end
-end
-
-"""
-    regulator_scan(solver::String)
-
-Write result of F2 form factor for |Δ| in [1e-6,3.3] GeV
-
-### Input
-
-- `solver` -- Integration strategy
-    - Either "cuhre", "vegas", "divonne", "suave"
-
-### Notes
-
-- Run over ssh using e.g.
-  nohup julia -e 'include("sivers.jl"); 
-  Sivers.write_f2_form_factor_to_csv()' > log.txt 2>&1 &
-"""
-function regulator_scan(solver::String)
-    mu_vals = [0.01, 0.02, 0.03, 0.04, 0.05]
-    for mu in mu_vals
-        write_odderon_distribution_to_csv(mu, solver)
-    end
-end
-
-"""
-    write_odderon_distribution_range_to_csv(kmin::Real, kstep::Real, kmax::Real, mu::Real, [solver]::String="cuhre")
-
-Write result of odderon_distribution for |k| in [kmin,kmax] GeV in steps of kstep GeV.
-
-### Input
-- `kmin`    -- Minimum value of k in GeV
-- `kstep`   -- Step interval for k in GeV
-- `kmax`    -- Maximun value of k in GeV
-- `mu`      -- Regulator for integration
-- `solver`  -- (optional, default =`"cuhre`) Integration strategy
-              - Either "cuhre", "vegas", "divonne", "suave"
-"""
-function write_odderon_distribution_range_to_csv(kmin::Real, kstep::Real, kmax::Real,
-                                                 mu::Real, solver::String="cuhre")
-    filename = "output_$(solver)_$(mu)_$(kmin)_$(kmax).csv"
-    open(filename, "w") do io 
-        println(io, "k,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions")  # header
-        for k in kmin:kstep:kmax
-            integral, err, prob, neval, fail, nregions  = odderon_distribution(1, -1, [k,0], [0,0]; mu=mu, solver=solver)
-            println(io, "$(k),$(integral[1]),$(integral[2]),$(err[1]),$(err[2]),$(prob[1]),$(prob[2]),$(neval),$(fail),$(nregions)")
-            flush(io) 
-        end
-    end
-end
-
-"""
-    write_f1_form_factor_to_csv()
-
-Write result of F1 form factor for |Δ| in [0,3.3] GeV
-
-### Notes
-- Run over ssh using e.g.
-  nohup julia -e 'include("sivers.jl"); 
-  Sivers.write_f1_form_factor_to_csv()' > log.txt 2>&1 &
-"""
-function write_f1_form_factor_to_csv()
-    open("output_f1.csv", "w") do io
-        println(io, "k,val,err_real,err_imag")  # header
-        for Δ in 0.0:.125:3.3
-            val, err = f1_form_factor([Δ, 0])
-            println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
-            flush(io) 
-        end
-    end
-end
-
-"""
-    write_f2_form_factor_to_csv()
-
-Write result of F2 form factor for |Δ| in [1e-6,3.3] GeV
-
-### Notes
-- Run over ssh using e.g.
-  nohup julia -e 'include("sivers.jl"); 
-  Sivers.write_f2_form_factor_to_csv()' > log.txt 2>&1 &
-"""
-function write_f2_form_factor_to_csv()
-    open("output_f2.csv", "w") do io
-        println(io, "k,val,err_real,err_imag")  # header
-        for Δ in 1e-6:.125:3.3
-            val, err = f2_form_factor([Δ, 0])
-            println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
-            flush(io) 
-        end
-    end
-end
-
-function write_f_form_factor_to_csv()
-    open("output_f.csv", "w") do io
-        println(io, "k,val,err_real,err_imag")  # header
-        for Δ in 0.01:.125:3.3
-            val, err = f_form_factor(1,-1,[Δ, 0])
-            println(io, "$(Δ),$(val),$(err[1]),$(err[2])")
-            flush(io) 
-        end
-    end
-end
-
-
-#############
-#############
+# ======================
 end # module
