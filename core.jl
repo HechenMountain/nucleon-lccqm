@@ -6,8 +6,6 @@ module Sivers
 # ======================
 # Imports
 # ======================
-
-using Base: pi
 # Integration
 using Cuba
 
@@ -40,10 +38,15 @@ export  normalize_wavefunction,
         f_form_factor,
         cubic_color_correlator, 
         odderon_distribution,
-        gluon_sivers
+        gluon_sivers,
+        test
+
+# ======================
+# Constants
+# ======================
 
 # Parameters and SU(Nc) algebra set in parameters.jl
-const alpha_s = params.alpha_s ;
+const αs = params.αs ;
 const Nc = params.Nc ;
 const mN = params.mN ;
 const dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc ;
@@ -85,8 +88,8 @@ function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
         r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
         
         # Reconstruct cartesian momenta from polar coordinates
-        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
-        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+        k1 = hp.polar_to_cartesian([r1, ϕ1])
+        k2 = hp.polar_to_cartesian([r2, ϕ2])
         k3 = - (k1 + k2)  # Enforce transverse momentum conservation
 
         # Jacobian
@@ -96,9 +99,9 @@ function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
         wf1 = wfs.compute_wavefunction(s01, k1, k2, k3, x1, x2, x3)
         # Sum over charge contributions
         for (i,q) in enumerate(charges)
-            k1prime = k1 - x1 * Δ + hp.kronecker_delta(i,1) * Δ
-            k2prime = k2 - x2 * Δ + hp.kronecker_delta(i,2) * Δ
-            k3prime = k3 - x3 * Δ + hp.kronecker_delta(i,3) * Δ
+            k1prime = k1 - x1 * Δ + hp.δ(i,1) * Δ
+            k2prime = k2 - x2 * Δ + hp.δ(i,2) * Δ
+            k3prime = k3 - x3 * Δ + hp.δ(i,3) * Δ
             wf2 = wfs.compute_wavefunction(s02, k1prime, k2prime, k3prime, x1, x2, x3)
             # Sum over spin contributions
             total += q * wfs.spin_sum(wf1, wf2)
@@ -217,7 +220,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         # Momentum inflow [q1 + q2 + q3] at j123
         # i is k_prime (quark) index, j123 quark line with 
         # momentum inflow q1 + q2 + q3 from gluon.
-        delta_kiprime =  hp.kronecker_delta(i, j123) * (q1 + q2 + q3)
+        delta_kiprime =  hp.δ(i, j123) * (q1 + q2 + q3)
         return delta_kiprime
     end
     function two_body_kin(i, j12, j3, l, q1, q2, q3)
@@ -227,11 +230,11 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         # Addtional terms from permutations, so in total 3 contributions
         # which we distinguish by l
         if l == 1 # [q2 + q3,j12] [q1,j3]
-            delta_kiprime =  hp.kronecker_delta(i, j12) * (q2 + q3) + hp.kronecker_delta(i, j3) * q1
+            delta_kiprime =  hp.δ(i, j12) * (q2 + q3) + hp.δ(i, j3) * q1
         elseif l == 2 # [q1 + q3,j12] [q2,j3]
-            delta_kiprime =  hp.kronecker_delta(i, j12) * (q1 + q3) + hp.kronecker_delta(i, j3) * q2
+            delta_kiprime =  hp.δ(i, j12) * (q1 + q3) + hp.δ(i, j3) * q2
         elseif l == 3 # [q1 + q2,j12] [q3,j3]
-            delta_kiprime =  hp.kronecker_delta(i, j12) * (q1 + q2) + hp.kronecker_delta(i, j3) * q3
+            delta_kiprime =  hp.δ(i, j12) * (q1 + q2) + hp.δ(i, j3) * q3
         end
         return delta_kiprime
     end
@@ -239,7 +242,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         # Momentum inflow [q1,j1] [q2,j2] [q3,j3]
         # i is k_prime (quark) index, j1, j2, j3 are gluons with momenta
         # q1, q2 and q3, respectively, attached to quark lines.
-        delta_kiprime = hp.kronecker_delta(i, j1) * q1 + hp.kronecker_delta(i, j2) * q2 + hp.kronecker_delta(i, j3) * q3
+        delta_kiprime = hp.δ(i, j1) * q1 + hp.δ(i, j2) * q2 + hp.δ(i, j3) * q3
         return delta_kiprime
     end
     # Cubic color correlator without Jacobian
@@ -291,7 +294,7 @@ end
 """
     odderon_distribution(s01::Integer,s02::Integer,
                          k::Vector{<:Real},Δ::Vector{<:Real};
-                         mu::Real=0.00,solver::String="vegas")
+                         μ::Real=0.00,solver::String="vegas")
 
 Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 
@@ -299,7 +302,7 @@ Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 - `s01, s02`: Spin of ingoing/outgoing proton (each must be either +1 or -1)
 - `k`: 2D transverse momentum transfer vector in cartesian coordinates
 - `Δ`: 2D momentum transfer vector in cartesian coordinates
-- `mu`: Regulator for integrand (default: 0.00)
+- `μ`: Regulator for integrand (default: 0.00)
 - `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
 
 # Returns
@@ -319,7 +322,7 @@ Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 """
 function odderon_distribution(s01::Integer, s02::Integer,
                               k::Vector{<:Real}, Δ::Vector{<:Real};
-                              mu::Real=0.00, solver::String="vegas")
+                              μ::Real=0.00, solver::String="vegas")
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
@@ -341,12 +344,12 @@ function odderon_distribution(s01::Integer, s02::Integer,
         r3, ϕ3, d2q2 = hp.cuba_to_polar(x[7:8])    # q2
         
         # Reconstruct cartesian momenta from polar coordinates
-        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
-        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+        k1 = hp.polar_to_cartesian([r1, ϕ1])
+        k2 = hp.polar_to_cartesian([r2, ϕ2])
         k3 = - (k1 + k2)  # Enforce transverse momentum conservation
         d4k = d2k1 * d2k2
 
-        q2 = [r3 * cos(ϕ3), r3 * sin(ϕ3)]
+        q2 = hp.polar_to_cartesian([r3, ϕ3])
         # Jacobian
         d8x = d2x * d4k * d2q2 # 2 + 4 + 2 = 8d integral
 
@@ -358,14 +361,14 @@ function odderon_distribution(s01::Integer, s02::Integer,
             total += s * ccc
         end
         # Regenerate initial q2
-        q2 = [r3 * cos(ϕ3), r3 * sin(ϕ3)]
+        q2 = hp.polar_to_cartesian([r3, ϕ3])
         q3 = k + q2
         q22 = sum(q2.^2)
         q32 = sum(q3.^2)
         # Add regulator
-        mu2 = mu^2
-        q22 += mu2
-        q32 += mu2
+        μ2 = μ^2
+        q22 += μ2
+        q32 += μ2
         # Same denominator
         # for both terms once momenta
         # have been flipped
@@ -393,13 +396,13 @@ function odderon_distribution(s01::Integer, s02::Integer,
 end
 
 """
-    gluon_sivers(k::Real;mu::Real=0.00,solver::String="vegas")
+    gluon_sivers(k::Real;μ::Real=0.00,solver::String="vegas")
 
 Compute the gluon Sivers function for momentum transfer k.
 
 # Arguments
 - `k`: Modulus of transverse momentum transfer
-- `mu`: Regulator for integrand (default: 0.01)
+- `μ`: Regulator for integrand (default: 0.01)
 - `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
 
 # Returns
@@ -416,16 +419,16 @@ Compute the gluon Sivers function for momentum transfer k.
   and sum them similar to `f2_form_factor`
 - Result is real but we keep the imaginary part for consistency
 """
-function gluon_sivers(k::Real; mu::Real=0.00, solver::String="vegas")
+function gluon_sivers(k::Real; μ::Real=0.00, solver::String="vegas")
     # Spin flip
     s01 = 1
     s02 = -1
     # Zero momentum transfer
     Δ = [0,0]
 
-    odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, [k,0], Δ; mu=mu, solver=solver)
+    odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, [k,0], Δ; μ=μ, solver=solver)
     # 1 / k^2 partially cancels with definition of Sivers function
-    prf = 8 * mN * Nc / π * alpha_s^2 / k
+    prf = 8 * mN * Nc / π * αs^2 / k
     result = prf * odderon_dist
     err .*= abs(prf)
     return result, err, prob, neval, fail, nregions

@@ -4,39 +4,39 @@ module Helpers
 # Export
 # ======================
 
-export  kronecker_delta,
-        spin_index, cuba_to_parton_x, 
-        cuba_to_polar, cuba_to_hyperspherical
+export  δ,
+        spin_index,
+        cuba_to_parton_x, 
+        cuba_to_polar,
+        cuba_to_hyperspherical,
+        polar_to_cartesian,
+        cartesian_to_polar
 
 # ======================
 # Functions
 # ======================
 
 """ 
-    kronecker_delta(a, b)
+    δ(a::Real, b::Real)
 Kronecker delta function.
 
 # Arguments
-
-- `a::Real`: First argument
-- `b::Real`: Second argument  
+- `a`: First argument
+- `b`: Second argument  
 
 # Returns
-
 - `1` if `a == b`, else `0`
 """
-kronecker_delta(a::Real, b::Real) = a == b ? 1 : 0
+δ(a::Real, b::Real) = a == b ? 1 : 0
 
 """ 
-    spin_index(s)
+    spin_index(s::Integer)
 Maps spin values -1 and +1 to indices 1 and 2, respectively.
 
 # Arguments
-
-- `s::Integer`: Spin value (-1 or +1)
+- `s`: Spin value (-1 or +1)
 
 # Returns
-
 - `index::Integer`: Corresponding index (1 or 2)
 """
 spin_index(s::Integer) = (s == -1) ? 1 : 2
@@ -47,11 +47,9 @@ spin_index(s::Integer) = (s == -1) ? 1 : 2
 Regulates the endpoints of [0,1]^n Cuba samples to avoid NaNs
 
 # Arguments
-
-- `x::Vector{<:Real}`: [0,1]^n Cuba sample
+- `x`: [0,1]^n Cuba sample
 
 # Returns
-
 - `x::Vector{<:Real}`: Regulated values (x[i] +-= 1e-12 depending on the endpoint)
 """
 function regulate_cuba(x::Vector{<:Real})
@@ -63,7 +61,7 @@ end
 
 
 """
-    cuba_to_parton_x(x)
+    cuba_to_parton_x(x::Vector{<:Real})
 
 Performs the variable transformation from [0,1]^n 
 Cuba samples to parton-x with the condition
@@ -71,7 +69,7 @@ Cuba samples to parton-x with the condition
 
 # Arguments
 
-- `x::Vector{<:Real}`: [0,1]^n Cuba sample
+- `x`: [0,1]^n Cuba sample
 
 # Returns
 - `x::Vector{<:Real}`: Parton-x values
@@ -102,12 +100,12 @@ function cuba_to_parton_x(x::Vector{<:Real})
 end
 
 """
-    cuba_to_polar(x)
+    cuba_to_polar(x::Vector{<:Real})
 
 Transform a Cuba sample `x ∈ [0,1]^2` into polar coordinates.
 
 # Arguments
-- `x::Vector{<:Real}`: Sample point in the unit circle `[0,1]^2`.
+- `x`: Sample point in the unit circle `[0,1]^2`.
 
 # Returns
 - `r::Real`: Radius
@@ -133,12 +131,12 @@ function cuba_to_polar(x::Vector{<:Real})
 end
 
 """
-    cuba_to_hyperspherical(x)
+    cuba_to_hyperspherical(x::Vector{<:Real})
 
 Transform a Cuba sample `x ∈ [0,1]^n` into hyperspherical coordinates.
 
 # Arguments
-- `x::Vector{<:Real}`: Sample point in the unit hypercube `[0,1]^n` with `n ≥ 2`.
+- `x`: Sample point in the unit hypercube `[0,1]^n` with `n ≥ 2`.
 
 # Returns
 - `r::Real`: Radius
@@ -179,13 +177,37 @@ function cuba_to_hyperspherical(x::Vector{<:Real})
 end
 
 """
-    cartesian_to_polar(vec)
+    polar_to_cartesian(vec_polar::Vector{<:Real})
+
+Transform a polar input vector 'vec_polar=[v_r,v_ϕ]' 
+to cartesian coordinates 'vec=[v_x,v_y]'
+
+# Arguments
+- `vec_polar`: Polar input vector
+
+# Returns
+- `vec::Vector{<:Real}`: Cartesian output vector
+
+# Notes
+- Throws an `ArgumentError` if called with `length(vec) != 2`.
+"""
+function polar_to_cartesian(vec_polar::Vector{<:Real})
+    if length(vec_polar) != 2
+        throw(ArgumentError("Polar to cartesian coordinates requires 2D input."))
+    end
+    r, ϕ = vec_polar
+    x, y = r * cos(ϕ), r * sin(ϕ)
+    return [x, y]
+end
+
+"""
+    cartesian_to_polar(vec::Vector{<:Real})
 
 Transform a cartesian input vector 'vec=[v_x,v_y]' to polar coordinates
 'vec_polar=[v_r,v_ϕ]'
 
 # Arguments
-- `vec::Vector{<:Real}`: Cartesian input vector
+- `vec`: Cartesian input vector
 
 # Returns
 - `vec_polar::Vector{<:Real}`: Polar output vector

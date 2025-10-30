@@ -253,8 +253,8 @@ function normalize_wavefunction()
         r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])
         
         # Reconstruct cartesian momenta from polar coordinates
-        k1 = [r1 * cos(ϕ1), r1 * sin(ϕ1)]
-        k2 = [r2 * cos(ϕ2), r2 * sin(ϕ2)]
+        k1 = hp.polar_to_cartesian([r1, ϕ1])
+        k2 = hp.polar_to_cartesian([r2, ϕ2])
         k3 = - (k1 + k2)  # Enforce transverse momentum conservation
 
         # Jacobian
@@ -274,16 +274,19 @@ function normalize_wavefunction()
         f[1] =  real(result)
         f[2] =  imag(result)
     end
-    integral, err = cuhre(integrand, 6, 2; maxevals=10_000_000) 
+    integral, err, prob, neval, fail, nregions = cuhre(integrand, 6, 2; maxevals=10_000_000) 
     # integral, err = vegas(integrand, 6, 2; maxevals=10_000_000)
     # Multiply with prefactors from integration
-    result = 1 / (4π)^2 / (2π)^4 * complex(integral[1], integral[2])
+    prf = 1 / (4π)^2 / (2π)^4 
+    result = prf * complex(integral[1], integral[2])
+    err .*= prf
+    # Warn if imaginary part is large
     if imag(result) > 1e-6
         @warn "Large imaginary part in wavefunction normalization: $(imag(result))"
     end
     # Return norm
     norm = 1 / sqrt(real(result))
-    return norm, err
+    return norm, err, prob, neval, fail, nregions
 end
 
 # ======================
