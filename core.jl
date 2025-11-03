@@ -38,8 +38,7 @@ export  normalize_wavefunction,
         f_form_factor,
         cubic_color_correlator, 
         odderon_distribution,
-        gluon_sivers,
-        test
+        gluon_sivers
 
 # ======================
 # Constants
