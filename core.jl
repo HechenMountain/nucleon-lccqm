@@ -111,7 +111,6 @@ function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
     end
     # Call cuhre with ncomp=2 to track real and imaginary parts separately
     integral, err, prob, neval, fail, nregions = cuhre(integrand, 6, 2; maxevals=10_000_000)
-    # integral, err = vegas(integrand, 6, 2; maxevals=10_000_000)
     # Apply prefactors to integration results
     norm = params.norm
     prf = 3 / (4π)^2 / (2π)^4 * norm^2
@@ -209,7 +208,6 @@ Compute the unintegrated cubic color correlator by summing one-, two-, and three
 # Notes
 - This is G_3ΛΛ' stripped of the integrals and factor of 1/(4π)^2/(2π)^2 in the draft
 - Momenta must be in cartesian coordinates
-- We enforce the symmetry in the k integration to get a simpler integrand
 """
 function cubic_color_correlator(s01::Integer,s02::Integer,
                                 x1::Real, x2::Real, x3::Real,
@@ -263,7 +261,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         ccc += wfs.spin_sum(wf1, wf2)
     end
     # Two-body
-    # Addtional terms from permutations, so we have an extra sum over k
+    # Addtional terms from permutations, so we have an extra sum over l
     for l in 1:3, j12 in 1:3, j3 in 1:3
         if j12 == j3
             continue
@@ -288,6 +286,148 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         ccc += wfs.spin_sum(wf1, wf2)
     end
     return ccc
+end
+
+"""
+    integrate_cubic_color_correlator(s01::Integer,s02::Integer,
+                           x1::Real, x2::Real, x3::Real,
+                           q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real})
+
+Compute the integrated cubic color correlator.
+
+# Arguments
+- `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
+- `q1, q2, q3`: Eikonal momenta (2D cartesian vectors)
+- `solver`: Integration strategy (default: "cuhre", options: "cuhre", "vegas", "divonne", "suave")
+
+# Returns
+- ToDo
+
+# Notes
+- This is G_3ΛΛ' including the integrals to run some checks.
+- Momenta must be in cartesian coordinates
+"""
+function integrate_cubic_color_correlator(s01::Integer,s02::Integer,
+                                          q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real};
+                                          solver::String="vegas")
+    sol =   solver == "cuhre" ? cuhre :
+            solver == "vegas" ? vegas :
+            solver == "suave" ? suave :
+            solver == "divonne" ? divonne :
+            throw(ArgumentError("solver must be one of: cuhre, vegas, divonne, suave"))
+
+    function integrand(x,f)
+        # Regulate endpoint singularities
+        x = hp.regulate_cuba(x)
+        # Transform [0,1]^6 cuba samples to physical variables
+        # Parton-x
+        (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
+        # Momenta
+        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])    # k1
+        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
+    
+        # Reconstruct cartesian momenta from polar coordinates
+        k1 = hp.polar_to_cartesian([r1, ϕ1])
+        k2 = hp.polar_to_cartesian([r2, ϕ2])
+        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
+        d4k = d2k1 * d2k2
+
+        # Jacobian
+        d6x = d2x * d4k # 2 + 4 = 6d integral
+
+        ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
+        ccc *=  d6x
+
+        f[1] = real(ccc)
+        f[2] = imag(ccc)
+    end
+    integral, err, prob, neval, fail, nregions = sol(integrand, 6, 2; maxevals=10_000_000)
+    # Prefactors 
+    norm = params.norm
+    prf = norm^2
+    # π factors from integration:
+    # Deltas have (2π)^2 * 4π in front. 
+    # Every integration over k gives 1 / (2π)^2 -> 1 / (2π)^(2 * 3)
+    # Every integration over x gives 1 / (4π)
+    prf /= (4π)^2 * (2π)^4
+    # We return the result up to a factor of k^2
+    integral .*= prf
+    err .*= abs(prf)
+    return integral, err, prob, neval, fail, nregions 
+end
+
+"""
+    ft_cubic_color_correlator(s01::Integer,s02::Integer,
+                           x1::Real, x2::Real, x3::Real,
+                           q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real}
+                           r::Vector{<:Real}, solver::String="vegas")
+
+Compute the Fourier transform of the integrated cubic color correlator.
+
+# Arguments
+- `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
+- `r`: 2D transverse coordinate vector in cartesian coordinates
+- `solver`: Integration strategy (default: "cuhre", options: "cuhre", "vegas", "divonne", "suave")
+
+# Returns
+- ToDo
+
+# Notes
+- This is G_3ΛΛ' including the integrals to run some checks.
+- Momenta must be in cartesian coordinates
+"""
+function ft_cubic_color_correlator(s01::Integer,s02::Integer,
+                                   r::Vector{<:Real}; solver::String="vegas")
+    sol =   solver == "cuhre" ? cuhre :
+            solver == "vegas" ? vegas :
+            solver == "suave" ? suave :
+            solver == "divonne" ? divonne :
+            throw(ArgumentError("solver must be one of: cuhre, vegas, divonne, suave"))
+
+    function integrand(x,f)
+        # Regulate endpoint singularities
+        x = hp.regulate_cuba(x)
+        # Transform [0,1]^8 cuba samples to physical variables
+        # Parton-x
+        (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
+        # Momenta
+        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])     # k1
+        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])     # k2
+        r3, ϕ3, d2Δ = hp.cuba_to_polar(x[7:8])      # Δ
+    
+        # Reconstruct cartesian momenta from polar coordinates
+        k1 = hp.polar_to_cartesian([r1, ϕ1])
+        k2 = hp.polar_to_cartesian([r2, ϕ2])
+        k3 = - (k1 + k2)    # Enforce transverse momentum conservation
+        d4k = d2k1 * d2k2
+
+        Δ = hp.polar_to_cartesian([r3, ϕ3])
+        # Assume q_12 = q_23 = 0 
+        q12, q23 = [0,0], [0,0]
+        q1, q2, q3 = (2 * q12 + q23 - Δ) / 3, (- q12 + q23 - Δ) / 3, - (q12 + 2 * q23 + Δ) / 3
+        # Jacobian
+        d8x = d2x * d4k * d2Δ   # 2 + 4 + 2 = 8d integral
+
+        ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
+        # Fourier factor
+        ft_factor = exp(-im * Δ'r)
+        res = ccc * ft_factor * d8x
+
+        f[1] = real(res)
+        f[2] = imag(res)
+    end
+    integral, err, prob, neval, fail, nregions = sol(integrand, 8, 2; maxevals=100_000_000)
+    # Prefactors 
+    norm = params.norm
+    prf = norm^2
+    # π factors from integration:
+    # Deltas have (2π)^2 * 4π in front. 
+    # Every integration over k gives 1 / (2π)^2 -> 1 / (2π)^(2 * 3)
+    # Every integration over x gives 1 / (4π)
+    prf /= (4π)^2 * (2π)^6
+    integral .*= prf
+    err .*= abs(prf)
+    return integral, err, prob, neval, fail, nregions 
 end
 
 """
@@ -318,6 +458,7 @@ Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 - Momenta must be in cartesian coordinates
 - `norm` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
 - Result is generally complex; for k_y = 0 it is real
+- We enforce the symmetry in the k integration to get a simpler integrand
 """
 function odderon_distribution(s01::Integer, s02::Integer,
                               k::Vector{<:Real}, Δ::Vector{<:Real};
@@ -325,6 +466,7 @@ function odderon_distribution(s01::Integer, s02::Integer,
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
+    
     sol =   solver == "cuhre" ? cuhre :
             solver == "vegas" ? vegas :
             solver == "suave" ? suave :
@@ -351,28 +493,44 @@ function odderon_distribution(s01::Integer, s02::Integer,
         q2 = hp.polar_to_cartesian([r3, ϕ3])
         # Jacobian
         d8x = d2x * d4k * d2q2 # 2 + 4 + 2 = 8d integral
-
+        μ2 = μ^2 # Regulator squared
         total = 0
-        for s in (+1,-1)
-            # Flip momenta to project out Sivers function
-            q1, q2, q3 = s * k, s * q2, - s * (k + q2)
-            ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
-            total += s * ccc
+        # Simplified integrand for spin-flip
+        if s01 != s02
+            for s in (+1,-1)
+                # Flip momenta to project out Sivers function
+                q1, q2, q3 = s * k, s * q2, - s * (k + q2)
+                ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
+                total += s * ccc
+            end
+            # Regenerate initial q2
+            q2 = hp.polar_to_cartesian([r3, ϕ3])
+            q3 = k + q2
+            q22, q32 = sum(q2.^2), sum(q3.^2)
+            # Add regulator
+            q22 += μ2
+            q32 += μ2
+            # Same denominator
+            # for both terms once momenta
+            # have been flipped
+            den = q22 * q32 
+            total /= den
+        else
+            # This part can probably also be simplified
+            q22 = sum(q2.^2)
+            # Add regulator
+            q22 += μ2
+            for s in (+1,-1)
+                q1, q3 = s * k, - (s * k + q2)
+                ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
+                q32 = sum(q3.^2)
+                # Add regulator
+                q32 += μ2
+                total += s * ccc / q32
+            end
+            total /= q22
         end
-        # Regenerate initial q2
-        q2 = hp.polar_to_cartesian([r3, ϕ3])
-        q3 = k + q2
-        q22 = sum(q2.^2)
-        q32 = sum(q3.^2)
-        # Add regulator
-        μ2 = μ^2
-        q22 += μ2
-        q32 += μ2
-        # Same denominator
-        # for both terms once momenta
-        # have been flipped
-        den = q22 * q32  
-        total *=  d8x / den
+        total *=  d8x
 
         f[1] = real(total)
         f[2] = imag(total)

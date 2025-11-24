@@ -1,6 +1,6 @@
 # This code performs parallel computation of the electromagnetic form factors,
 # odderon distribution and gluon Sivers function
-# over a specified range of Δ and k values, using multiple processors.
+# over a specified range of Δ and k values.
 # The results are stored in CSV files.
 # Just uncomment the function calls at the bottom to use.
 # Run for example over command line via: nohup julia -p nworkers writers.jl > writers.log 2>&1 &
@@ -20,8 +20,8 @@ include(CorePath)
 using .Sivers
 
 # Make it available to all workers
-println("Finished module import at top level ", Dates.now())
-println("Starting module import for $(nworkers()) workers ", Dates.now())
+println(Dates.now(), " Finished module import at top level.")
+println(Dates.now(), " Starting module import for $(nworkers()) workers...")
 flush(stdout)
 
 @everywhere begin
@@ -33,7 +33,7 @@ flush(stdout)
     using SharedArrays
 end
 
-println("Finished module import at ", Dates.now())
+println(Dates.now(), " Finished module import.")
 flush(stdout)
 
 # ======================
@@ -139,12 +139,8 @@ function write_gluon_sivers_to_csv(kmin::Real, kstep::Real, kmax::Real,
     end
     # Write to file
     filename = "output_gluon_sivers_$(solver)_$(μ)_$(kmin)_$(kmax).csv"
+    println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
-end
-
-@everywhere function test(k)
-    integral, err, prob, neval, fail, nregions = [exp(-k[1]^2 - k[2]^2),exp(-k[1]^2 - k[2]^2)], [0.0,0.0], [1.0,1.0], 0, 0, 0
-    return integral, err, prob, neval, fail, nregions
 end
 
 """
@@ -188,6 +184,7 @@ function write_2d_odderon_distribution_to_csv(s01::Integer,s02::Integer,kmin::Re
     end
     # Write to file
     filename = "output_2d_$(s01)_$(s02)_$(solver)_$(μ)_$(kmin)_$(kmax).csv"
+    println(Dates.now(), " Writing to file ", filename)
     write_2d_cuba_to_file(filename,k_list,results)
 end
 
@@ -223,6 +220,91 @@ function write_odderon_distribution_to_csv(kmin::Real, kstep::Real, kmax::Real,
     end
     # Write to file
     filename = "output_$(solver)_$(μ)_$(kmin)_$(kmax).csv"
+    println(Dates.now(), " Writing to file ", filename)
+    write_cuba_to_file(filename,results)
+end
+
+"""
+    write_cubic_color_corellator_to_csv(kmin::Real, kstep::Real, kmax::Real, μ::Real, [solver]::String="cuhre")
+
+Write result of odderon_distribution for |k| in [kmin,kmax] GeV in steps of kstep GeV.
+
+# Arguments
+- `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
+- `q12, q23`: Values of q1 - q2 and q2 - q3 in GeV
+- `Δmin`: Minimum value of Δ in GeV
+- `Δstep`: Step interval for Δ in GeV
+- `Δmax`: Maximum value of Δ in GeV
+- `solver`: Integration strategy. Options: "vegas" (default), "cuhre", "divonne", "suave"
+
+# Returns
+Nothing. Creates a CSV file with the specified filename containing the results.
+
+# Notes
+We assume momentum transfer in x direction.
+"""
+function write_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
+                                             q12::Real, q23::Real,
+                                             Δmin::Real, Δstep::Real, Δmax::Real,
+                                             solver::String="vegas")
+    # Convert momenta to vectors
+    q12, q23 = [q12,0], [q23,0]
+    # Build momentum transfer range
+    Δ_list = collect(Δmin:Δstep:Δmax)
+    n = length(Δ_list)
+    # Initialize results array
+    # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
+    results = SharedArray{Float64}(n,10)
+
+    @sync @distributed for i in 1:n
+        Δ = [Δ_list[i],0]
+        q1, q2, q3 = (2 * q12 + q23 - Δ) / 3, (- q12 + q23 - Δ) / 3, - (q12 + 2 * q23 + Δ) / 3
+        integral, err, prob, neval, fail, nregions = Sivers.integrate_cubic_color_correlator(s01, s02, q1, q2, q3; solver=solver)
+        results[i, :] .= (Float64(Δ_list[i]), Float64(integral[1]), Float64(integral[2]), 
+                          Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
+                          Float64(neval), Float64(fail), Float64(nregions))
+    end
+    # Write to file
+    filename = "output_ccc_s01_$(s01)_s02_$(s02)_$(solver)_q12_$(q12)_q23_$(q23)_$(Δmin)_$(Δmax).csv"
+    println(Dates.now(), " Writing to file ", filename)
+    write_cuba_to_file(filename,results)
+end
+
+"""
+    write_ft_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
+                                           rmin::Real, rstep::Real, rmax::Real,
+                                           solver::String="cuhre")
+
+Write result of Fourier transform of odderon_distribution for |r| in [rmin,rmax] GeV in steps of kstep GeV.
+
+# Arguments
+- `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
+- `rmin`: Minimum value of r in GeV^-1
+- `rstep`: Step interval for r in GeV^-1       
+- `rmax`: Maximum value of r in GeV^-1
+- `solver`: Integration strategy. Options: "cuhre" (default), "vegas", "divonne", "suave"
+
+# Returns
+Nothing. Creates a CSV file with the specified filename containing the results.
+"""
+function write_ft_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
+                                                rmin::Real, rstep::Real, rmax::Real,
+                                                solver::String="cuhre")
+    r_list = collect(rmin:rstep:rmax)
+    n = length(r_list)
+    # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
+    results = SharedArray{Float64}(n,10)
+
+    @sync @distributed for i in 1:n
+        r = [r_list[i],0]
+        integral, err, prob, neval, fail, nregions = Sivers.ft_cubic_color_correlator(s01, s02, r; solver=solver)
+        results[i, :] .= (Float64(r_list[i]), Float64(integral[1]), Float64(integral[2]), 
+                          Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
+                          Float64(neval), Float64(fail), Float64(nregions))
+    end
+    # Write to file
+    filename = "output_ft_ccc_s01_$(s01)_s02_$(s02)_$(solver)_$(rmin)_$(rmax).csv"
+    println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
 
@@ -254,6 +336,7 @@ function write_f1_form_factor_to_csv(Δmin::Real=0.0, Δstep::Real=0.125, Δmax:
     end
     # Write to file
     filename = "output_f1.csv"
+    println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
 
@@ -285,6 +368,7 @@ function write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δstep::Real=0.125, Δmax
     end
     # Write to file
     filename = "output_f2.csv"
+    println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
 
@@ -317,6 +401,7 @@ function write_f_form_factor_to_csv(s01::Integer,s02::Integer,Δmin::Real=1e-6, 
     end
     # Write to file
     filename = "output_f_$(s01)_$(s02).csv"
+    println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
 
@@ -324,7 +409,7 @@ end
 # Main calls
 # ======================
 
-println("Starting writers at ", Dates.now())
+println(Dates.now(), " Starting writers...",)
 flush(stdout)
 # Add calls to the functions here as desired
 # write_f1_form_factor_to_csv()
@@ -334,7 +419,11 @@ flush(stdout)
 # write_gluon_sivers_to_csv(1e-4, 0.1, 1.0001, 0.0, "vegas")
 # write_2d_odderon_distribution_to_csv(1,-1,1e-4, 0.05, 1.001, 0.0, "vegas")
 # write_2d_odderon_distribution_to_csv(-1,1,1e-4, 0.05, 1.001, 0.0, "vegas")
-write_2d_odderon_distribution_to_csv(1,-1,1e-4, 0.01, 0.25, 0.0, "vegas")
-println("Finished writers at ", Dates.now())
+# write_2d_odderon_distribution_to_csv(1,-1,1e-4, 0.01, 0.25, 0.0, "vegas")
+# write_cubic_color_corellator_to_csv(1, 1, 0, 0, 1e-4, 0.05, 10.001, "vegas")
+# write_cubic_color_corellator_to_csv(1, -1, 0, 0, 1e-4, 0.05, 10.001, "vegas")
+write_ft_cubic_color_corellator_to_csv(1,1,1e-4,0.1,3.001,"vegas")
+write_ft_cubic_color_corellator_to_csv(1,-1,1e-4,0.1,3.001,"vegas")
+println(Dates.now(), " Finished writers.")
 
 # ======================
