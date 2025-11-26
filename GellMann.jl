@@ -1,7 +1,8 @@
 module GellMann
 using LinearAlgebra
 
-export gell_mann, sun_symbols
+export gell_mann, sun_symbols,
+       dabc, fabc
 
 """
     gell_mann(n)
@@ -78,6 +79,42 @@ function sun_symbols(gens)
     end
 
     return fabc, dabc
+end
+
+"""
+    dabc(a, b, c; n=3)
+Compute the symmetric d^{abc} symbol for SU(n).
+# Arguments
+- `a::Integer`: First index
+- `b::Integer`: Second index
+- `c::Integer`: Third index
+- `n::Integer=3`: Dimension of the SU(n) group (default is 3)
+
+# Returns
+- d^{abc} symbol as Float64
+"""
+function dabc(a::Integer, b::Integer, c::Integer; n::Integer=3)
+    gens = gell_mann(n)
+    _, d_symbols = sun_symbols(gens)
+    return d_symbols[a,b,c]
+end
+
+"""
+    fabc(a, b, c; n=3)
+Compute the antisymmetric f^{abc} symbol for SU(n).
+# Arguments
+- `a::Integer`: First index
+- `b::Integer`: Second index
+- `c::Integer`: Third index
+- `n::Integer=3`: Dimension of the SU(n) group (default is 3)
+
+# Returns
+- f^{abc} symbol as Float64
+"""
+function fabc(a::Integer, b::Integer, c::Integer; n::Integer=3)
+    gens = gell_mann(n)
+    f_symbols, _ = sun_symbols(gens)
+    return f_symbols[a,b,c]
 end
 
 # End module

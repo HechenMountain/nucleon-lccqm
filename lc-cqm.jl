@@ -3,7 +3,7 @@ module LC_CQM
 # Contains wavefunction related code for the 
 # light-cone constituent quark model (LC-CQM)
 # of https://arxiv.org/pdf/0806.2298, 
-# see also references 11-18 therein.
+# see also references [11-18] therein.
 
 # Parameters are defined in parameters.jl
 # Helpers are defined in helpers.jl
@@ -71,8 +71,8 @@ const SPIN_MAP = Dict{NTuple{4, Int}, Function}(
 """
     spin_wavefunction(s0::Integer,
                       s1::Integer,s2::Integer,s3::Integer,
-                      k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
-                      x1::Real, x2::Real, x3::Real)
+                      x1::Real, x2::Real, x3::Real,
+                      k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
 
 Spin dependence of baryon wavefunction obtained from Clebsch-Gordan coefficients.
 Index 0 refers to proton, 1-3 are valence quark indices
@@ -80,8 +80,8 @@ Index 0 refers to proton, 1-3 are valence quark indices
 #  Arguments
 - `s0`: Spin of the proton (must be either +1 or -1)
 - `s1, s2, s3`: Spins of the valence quarks (must be either +1 or -1)
-- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 - `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
+- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 
 # Returns
 - `wf::ComplexF64`: Value of spin wavefunction
@@ -91,8 +91,8 @@ Index 0 refers to proton, 1-3 are valence quark indices
 """
 function spin_wavefunction(s0::Integer,
                            s1::Integer, s2::Integer, s3::Integer,
-                           k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
-                           x1::Real, x2::Real, x3::Real)
+                           x1::Real, x2::Real, x3::Real,
+                           k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
     # Parameters
     mq = params.mq
     if !all(s -> s == 1 || s == -1, (s0,s1,s2,s3))
@@ -117,14 +117,14 @@ function spin_wavefunction(s0::Integer,
 end
 
 """
-    momentum_space_wavefunction(k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
-                                x1::Real, x2::Real, x3::Real)
+    momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
+                                k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
 
 Momentum dependence of baryon wavefunction
 
 # Arguments
-- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 - `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
+- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 
 # Returns
 Value of momentum space wavefunction
@@ -132,8 +132,8 @@ Value of momentum space wavefunction
 # Notes
 - Momenta should be cartesian.
 """
-function momentum_space_wavefunction(k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
-                                     x1::Real, x2::Real, x3::Real)
+function momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
+                                     k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
     # Parameters
     mq = params.mq
     β = params.β
@@ -147,45 +147,45 @@ end
 """
     baryon_wavefunction(s0::Integer,
                         s1::Integer,s2::Integer,s3::Integer,
-                        k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
-                        x1::Real, x2::Real, x3::Real)
+                        x1::Real, x2::Real, x3::Real,
+                        k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
 Compute product of spinor and momentum space wave function.
 
 # Arguments
-- `s0`: Spin of the proton (must be either +1 or -1)
+- `s0`: Spin of the baryon (must be either +1 or -1)
 - `s1, s2, s3`: Spins of the valence quarks (must be either +1 or -1)
-- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 - `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
+- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 
 # Returns
 - `wf::ComplexF64`: Value of baryon wavefunction
 
 # Notes
-- 0 refers to proton, 1-3 are valence quark indices
+- 0 refers to baryon, 1-3 are valence quark indices
 - Normalization carried out in f_form_factor and odderon_distribution later on
 - Momenta should be cartesian.
 """
 function baryon_wavefunction(s0::Integer,
-                             s1::Integer, s2::Integer, s3::Integer,
-                             k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real}, 
-                             x1::Real, x2::Real, x3::Real)
-    ms_wf =  momentum_space_wavefunction(k1, k2, k3, x1, x2, x3)
-    spin_wf = spin_wavefunction(s0, s1, s2, s3, k1, k2, k3, x1, x2, x3)
+                             s1::Integer,s2::Integer,s3::Integer,
+                             x1::Real, x2::Real, x3::Real,
+                             k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+    ms_wf =  momentum_space_wavefunction(x1, x2, x3, k1, k2, k3)
+    spin_wf = spin_wavefunction(s0, s1, s2, s3, x1, x2, x3, k1, k2, k3)
     wf =  ms_wf * spin_wf / sqrt(3)
     return wf
 end
 
 """
     compute_wavefunction(s::Integer,
-                         k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
-                         x1::Real, x2::Real, x3::Real)
+                         x1::Real, x2::Real, x3::Real
+                         k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
 
 Precompute wavefunction and write index combinatioons to array.
 
 # Arguments
 - `s0`: Spin of the proton (must be either +1 or -1)
-- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 - `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
+- `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 
 # Returns
 -`wf::Array{ComplexF64, 3}`: Value of norm of baryon wavefunction. To be set in parameters.jl
@@ -195,13 +195,13 @@ Precompute wavefunction and write index combinatioons to array.
   such that the wavefunction is accessed as e.g. wf[1,2,1]
 """
 function compute_wavefunction(s::Integer,
-                              k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real},
-                              x1::Real, x2::Real, x3::Real)
+                              x1::Real, x2::Real, x3::Real,
+                              k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
     # initialize array with 2^3 spin configurations
     wf = Array{ComplexF64}(undef, 2, 2, 2)
     for s1 in (-1,1), s2 in (-1,1), s3 in (-1,1)
         i1, i2, i3 = hp.spin_index(s1), hp.spin_index(s2), hp.spin_index(s3)
-        wf[i1,i2,i3] = baryon_wavefunction(s, s1, s2, s3, k1, k2, k3, x1, x2, x3)
+        wf[i1,i2,i3] = baryon_wavefunction(s, s1, s2, s3, x1, x2, x3, k1, k2, k3)
     end
     return wf
 end
@@ -261,11 +261,11 @@ function normalize_wavefunction()
         d4k = d2k1 * d2k2
 
         # Precompute momentum space wavefunction
-        ms_wf = momentum_space_wavefunction(k1, k2, k3, x1, x2, x3)
+        ms_wf = momentum_space_wavefunction(x1, x2, x3, k1, k2, k3)
         # Sum over spin contributions
         total = 0.0
         for s1 in (-1, 1), s2 in (-1, 1), s3 in (-1, 1)
-            spin_wf = spin_wavefunction(1, s1, s2, s3, k1, k2, k3, x1, x2, x3) 
+            spin_wf = spin_wavefunction(1, s1, s2, s3, x1, x2, x3, k1, k2, k3) 
             wf = ms_wf * spin_wf
             # total += abs2(wf)
             total += conj(wf) * wf

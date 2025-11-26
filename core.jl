@@ -8,6 +8,8 @@ module Sivers
 # ======================
 # Integration
 using Cuba
+# Bessel functions
+using SpecialFunctions: besselj0, besselj1
 
 const BasePath = @__DIR__
 const ParametersPath = joinpath(BasePath,"parameters.jl")
@@ -95,13 +97,13 @@ function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
         d4k = d2k1 * d2k2
 
         total = 0
-        wf1 = wfs.compute_wavefunction(s01, k1, k2, k3, x1, x2, x3)
+        wf1 = wfs.compute_wavefunction(s01, x1, x2, x3, k1, k2, k3)
         # Sum over charge contributions
         for (i,q) in enumerate(charges)
             k1prime = k1 - x1 * Δ + hp.δ(i,1) * Δ
             k2prime = k2 - x2 * Δ + hp.δ(i,2) * Δ
             k3prime = k3 - x3 * Δ + hp.δ(i,3) * Δ
-            wf2 = wfs.compute_wavefunction(s02, k1prime, k2prime, k3prime, x1, x2, x3)
+            wf2 = wfs.compute_wavefunction(s02, x1, x2, x3, k1prime, k2prime, k3prime)
             # Sum over spin contributions
             total += q * wfs.spin_sum(wf1, wf2)
         end
@@ -190,16 +192,16 @@ end
 
 """
     cubic_color_correlator(s01::Integer,s02::Integer,
-                           x1::Real, x2::Real, x3::Real,
                            q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real},
+                           x1::Real, x2::Real, x3::Real,
                            k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
 
 Compute the unintegrated cubic color correlator by summing one-, two-, and three-body contributions.
 
 # Arguments
 - `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
-- `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
 - `q1, q2, q3`: Eikonal momenta (2D cartesian vectors)
+- `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
 - `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 
 # Returns
@@ -210,8 +212,8 @@ Compute the unintegrated cubic color correlator by summing one-, two-, and three
 - Momenta must be in cartesian coordinates
 """
 function cubic_color_correlator(s01::Integer,s02::Integer,
-                                x1::Real, x2::Real, x3::Real,
                                 q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real},
+                                x1::Real, x2::Real, x3::Real,
                                 k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
     function one_body_kin(i, j123, q1, q2, q3)
         # Momentum inflow [q1 + q2 + q3] at j123
@@ -244,7 +246,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
     end
     # Cubic color correlator without Jacobian
     # Precompute incoming baryon wavefunction
-    wf1 = wfs.compute_wavefunction(s01, k1, k2, k3, x1, x2, x3)
+    wf1 = wfs.compute_wavefunction(s01, x1, x2, x3, k1, k2, k3)
 
     # Constant parts
     Δ = - (q1 + q2 + q3)
@@ -256,7 +258,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         k1prime = k1prime0 - one_body_kin(1, j123, q1, q2, q3)
         k2prime = k2prime0 - one_body_kin(2, j123, q1, q2, q3)
         k3prime = k3prime0 - one_body_kin(3, j123, q1, q2, q3)
-        wf2 = wfs.compute_wavefunction(s02,k1prime,k2prime,k3prime,x1,x2,x3)
+        wf2 = wfs.compute_wavefunction(s02, x1, x2, x3, k1prime, k2prime, k3prime)
         # Perform spin sum
         ccc += wfs.spin_sum(wf1, wf2)
     end
@@ -269,9 +271,9 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         k1prime = k1prime0 - two_body_kin(1, j12, j3, l, q1, q2, q3)
         k2prime = k2prime0 - two_body_kin(2, j12, j3, l, q1, q2, q3)
         k3prime = k3prime0 - two_body_kin(3, j12, j3, l, q1, q2, q3)
-        wf2 = wfs.compute_wavefunction(s02, k1prime, k2prime, k3prime, x1, x2, x3)
+        wf2 = wfs.compute_wavefunction(s02, x1, x2, x3, k1prime, k2prime, k3prime)
         # Perform spin sum
-        ccc += wfs.spin_sum(wf1, wf2)
+        ccc -= 0.5 * wfs.spin_sum(wf1, wf2)
     end
     # Three-body
     for j1 in 1:3, j2 in 1:3, j3 in 1:3
@@ -281,7 +283,7 @@ function cubic_color_correlator(s01::Integer,s02::Integer,
         k1prime = k1prime0 - three_body_kin(1, j1, j2, j3, q1, q2, q3)
         k2prime = k2prime0 - three_body_kin(2, j1, j2, j3, q1, q2, q3)
         k3prime = k3prime0 - three_body_kin(3, j1, j2, j3, q1, q2, q3)
-        wf2 = wfs.compute_wavefunction(s02, k1prime, k2prime, k3prime, x1, x2, x3)
+        wf2 = wfs.compute_wavefunction(s02, x1, x2, x3, k1prime, k2prime, k3prime)
         # Perform spin sum
         ccc += wfs.spin_sum(wf1, wf2)
     end
@@ -290,8 +292,8 @@ end
 
 """
     integrate_cubic_color_correlator(s01::Integer,s02::Integer,
-                           x1::Real, x2::Real, x3::Real,
-                           q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real})
+                                     q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real};
+                                     solver::String="vegas")
 
 Compute the integrated cubic color correlator.
 
@@ -332,16 +334,16 @@ function integrate_cubic_color_correlator(s01::Integer,s02::Integer,
         k3 = - (k1 + k2)  # Enforce transverse momentum conservation
         d4k = d2k1 * d2k2
 
+        ccc = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, k1, k2, k3)
+
         # Jacobian
         d6x = d2x * d4k # 2 + 4 = 6d integral
-
-        ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
         ccc *=  d6x
 
         f[1] = real(ccc)
         f[2] = imag(ccc)
     end
-    integral, err, prob, neval, fail, nregions = sol(integrand, 6, 2; maxevals=10_000_000)
+    integral, err, prob, neval, fail, nregions = sol(integrand, 6, 2; rtol=9e-3, maxevals=10_000_000)
     # Prefactors 
     norm = params.norm
     prf = norm^2
@@ -358,26 +360,26 @@ end
 
 """
     ft_cubic_color_correlator(s01::Integer,s02::Integer,
-                           x1::Real, x2::Real, x3::Real,
-                           q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real}
-                           r::Vector{<:Real}, solver::String="vegas")
+                              r::Vector{<:Real}, solver::String="vegas")
 
 Compute the Fourier transform of the integrated cubic color correlator.
 
 # Arguments
 - `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
-- `r`: 2D transverse coordinate vector in cartesian coordinates
-- `solver`: Integration strategy (default: "cuhre", options: "cuhre", "vegas", "divonne", "suave")
+- `rabs`: Absolute value of  transverse coordinate vector
+- `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
 
 # Returns
 - ToDo
 
 # Notes
-- This is G_3ΛΛ' including the integrals to run some checks.
+- We are Fourier transforming and integrating the cubic correlator in one go because
+  of the long tail in kT
+- Uses the Hankel transform to reduce dimensionality
 - Momenta must be in cartesian coordinates
 """
 function ft_cubic_color_correlator(s01::Integer,s02::Integer,
-                                   r::Vector{<:Real}; solver::String="vegas")
+                                   rabs::Real; solver::String="vegas")
     sol =   solver == "cuhre" ? cuhre :
             solver == "vegas" ? vegas :
             solver == "suave" ? suave :
@@ -391,9 +393,9 @@ function ft_cubic_color_correlator(s01::Integer,s02::Integer,
         # Parton-x
         (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
         # Momenta
-        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])     # k1
-        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])     # k2
-        r3, ϕ3, d2Δ = hp.cuba_to_polar(x[7:8])      # Δ
+        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])      # k1
+        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])      # k2
+        r3, dΔ = x[1] / (1 - x[7]), 1 / (1 - x[7])^2 # Δ
     
         # Reconstruct cartesian momenta from polar coordinates
         k1 = hp.polar_to_cartesian([r1, ϕ1])
@@ -401,22 +403,27 @@ function ft_cubic_color_correlator(s01::Integer,s02::Integer,
         k3 = - (k1 + k2)    # Enforce transverse momentum conservation
         d4k = d2k1 * d2k2
 
-        Δ = hp.polar_to_cartesian([r3, ϕ3])
+        Δ = [r3, 0]
         # Assume q_12 = q_23 = 0 
         q12, q23 = [0,0], [0,0]
         q1, q2, q3 = (2 * q12 + q23 - Δ) / 3, (- q12 + q23 - Δ) / 3, - (q12 + 2 * q23 + Δ) / 3
         # Jacobian
-        d8x = d2x * d4k * d2Δ   # 2 + 4 + 2 = 8d integral
+        d7x = d2x * d4k * dΔ   # 2 + 4 + 1 = 7d integral
 
-        ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
-        # Fourier factor
-        ft_factor = exp(-im * Δ'r)
-        res = ccc * ft_factor * d8x
+        # Cubic color correlator
+        ccc = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, k1, k2, k3)
+
+        # Hankel factor
+        Δabs = sqrt(sum(Δ.^2))
+        h_factor = Δabs * besselj0(Δabs * rabs)
+
+        # Full result
+        res = ccc * h_factor * d7x
 
         f[1] = real(res)
         f[2] = imag(res)
     end
-    integral, err, prob, neval, fail, nregions = sol(integrand, 8, 2; maxevals=100_000_000)
+    integral, err, prob, neval, fail, nregions = sol(integrand, 7, 2; rtol=9e-3, maxevals=100_000_000)
     # Prefactors 
     norm = params.norm
     prf = norm^2
@@ -424,7 +431,7 @@ function ft_cubic_color_correlator(s01::Integer,s02::Integer,
     # Deltas have (2π)^2 * 4π in front. 
     # Every integration over k gives 1 / (2π)^2 -> 1 / (2π)^(2 * 3)
     # Every integration over x gives 1 / (4π)
-    prf /= (4π)^2 * (2π)^6
+    prf /= (4π)^2 * (2π)^5
     integral .*= prf
     err .*= abs(prf)
     return integral, err, prob, neval, fail, nregions 
@@ -432,15 +439,15 @@ end
 
 """
     odderon_distribution(s01::Integer,s02::Integer,
-                         k::Vector{<:Real},Δ::Vector{<:Real};
+                         Δ::Vector{<:Real}, k::Vector{<:Real};
                          μ::Real=0.00,solver::String="vegas")
 
 Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 
 # Arguments
 - `s01, s02`: Spin of ingoing/outgoing proton (each must be either +1 or -1)
-- `k`: 2D transverse momentum transfer vector in cartesian coordinates
 - `Δ`: 2D momentum transfer vector in cartesian coordinates
+- `k`: 2D transverse momentum transfer vector in cartesian coordinates
 - `μ`: Regulator for integrand (default: 0.00)
 - `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
 
@@ -460,9 +467,9 @@ Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 - Result is generally complex; for k_y = 0 it is real
 - We enforce the symmetry in the k integration to get a simpler integrand
 """
-function odderon_distribution(s01::Integer, s02::Integer,
-                              k::Vector{<:Real}, Δ::Vector{<:Real};
-                              μ::Real=0.00, solver::String="vegas")
+function odderon_distribution(s01::Integer,s02::Integer,
+                              Δ::Vector{<:Real}, k::Vector{<:Real};
+                              μ::Real=0.00,solver::String="vegas")
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
@@ -494,13 +501,14 @@ function odderon_distribution(s01::Integer, s02::Integer,
         # Jacobian
         d8x = d2x * d4k * d2q2 # 2 + 4 + 2 = 8d integral
         μ2 = μ^2 # Regulator squared
+        
         total = 0
         # Simplified integrand for spin-flip
         if s01 != s02
             for s in (+1,-1)
                 # Flip momenta to project out Sivers function
                 q1, q2, q3 = s * k, s * q2, - s * (k + q2)
-                ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
+                ccc = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, s*k1, s*k2, s*k3)
                 total += s * ccc
             end
             # Regenerate initial q2
@@ -522,7 +530,7 @@ function odderon_distribution(s01::Integer, s02::Integer,
             q22 += μ2
             for s in (+1,-1)
                 q1, q3 = s * k, - (s * k + q2)
-                ccc = cubic_color_correlator(s01, s02, x1, x2, x3, q1, q2, q3, k1, k2, k3)
+                ccc = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, k1, k2, k3)
                 q32 = sum(q3.^2)
                 # Add regulator
                 q32 += μ2
@@ -583,7 +591,7 @@ function gluon_sivers(k::Real; μ::Real=0.00, solver::String="vegas")
     # Zero momentum transfer
     Δ = [0,0]
 
-    odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, [k,0], Δ; μ=μ, solver=solver)
+    odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, Δ, [k,0]; μ=μ, solver=solver)
     # 1 / k^2 partially cancels with definition of Sivers function
     prf = 8 * mN * Nc / π * αs^2 / k
     result = prf * odderon_dist
