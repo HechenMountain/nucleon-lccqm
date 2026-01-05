@@ -40,6 +40,7 @@ export  normalize_wavefunction,
         f_form_factor,
         cubic_color_correlator, 
         odderon_distribution,
+        odderon_distribution_r,
         gluon_sivers
 
 # ======================
@@ -466,6 +467,7 @@ Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 - `norm` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
 - Result is generally complex; for k_y = 0 it is real
 - We enforce the symmetry in the k integration to get a simpler integrand
+- Factor g^6 = 1
 """
 function odderon_distribution(s01::Integer,s02::Integer,
                               Δ::Vector{<:Real}, k::Vector{<:Real};
@@ -555,6 +557,106 @@ function odderon_distribution(s01::Integer,s02::Integer,
     # Final integration over q gives 1 / (2π)^2
     prf /= (4π)^2 * (2π)^6
     # We return the result up to a factor of k^2
+    integral .*= prf
+    err .*= abs(prf)
+    return integral, err, prob, neval, fail, nregions 
+end
+
+"""
+    odderon_distribution_r(s01::Integer,s02::Integer,
+                         Δ::Vector{<:Real}, r::Vector{<:Real};
+                         μ::Real=0.00,solver::String="vegas")
+
+Compute the Odderon distribution O in position space r and Δ.
+
+# Arguments
+- `s01, s02`: Spin of ingoing/outgoing proton (each must be either +1 or -1)
+- `Δ`: 2D momentum transfer vector in cartesian coordinates
+- `r`: 2D position vector in cartesian coordinates
+- `μ`: Regulator for integrand (default: 0.00)
+- `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
+
+# Returns
+- `integral::Vector{Float64}`: Array [re, im] containing real and imaginary parts of O(r,Δ)
+- `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
+- `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
+- `neval::Int64`: Number of integrand evaluations
+- `fail::Int32`: Integration failure flag (0 = success)
+- `nregions::Int32`: Number of subregions used in the integration
+
+# Notes
+- vectors must be in cartesian coordinates
+- `norm` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
+- Result is generally complex
+- Factor ig^6 = 1
+"""
+function odderon_distribution_r(s01::Integer,s02::Integer,
+                              Δ::Vector{<:Real}, r::Vector{<:Real};
+                              μ::Real=0.00,solver::String="vegas")
+    if !iszero(Δ)
+        throw(ArgumentError("Implementation currently only for vanishing Δ."))
+    end
+    
+    sol =   solver == "cuhre" ? cuhre :
+            solver == "vegas" ? vegas :
+            solver == "suave" ? suave :
+            solver == "divonne" ? divonne :
+            throw(ArgumentError("solver must be one of: cuhre, vegas, divonne, suave"))
+
+    function integrand(x,f)
+        # Regulate endpoint singularities
+        x = hp.regulate_cuba(x)
+        # Transform [0,1]^8 cuba samples to physical variables
+        # Parton-x
+        (x1, x2, x3), d2x = hp.cuba_to_parton_x(x[1:2])
+        # Momenta
+        r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])    # k1
+        r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
+        r3, ϕ3, d2q1 = hp.cuba_to_polar(x[7:8])    # q1
+        r4, ϕ4, d2q2 = hp.cuba_to_polar(x[9:10])   # q2
+        
+        # Reconstruct cartesian momenta from polar coordinates
+        k1 = hp.polar_to_cartesian([r1, ϕ1])
+        k2 = hp.polar_to_cartesian([r2, ϕ2])
+        k3 = - (k1 + k2)  # Enforce transverse momentum conservation
+        d4k = d2k1 * d2k2
+
+        q1 = hp.polar_to_cartesian([r3, ϕ3])
+        q2 = hp.polar_to_cartesian([r4, ϕ4])
+        q3 = Δ - (q1 + q2)
+        d4q = d2q1 * d2q2
+
+        μ2 = μ^2 # Regulator squared
+        q12, q22, q32 = sum(q1.^2) + μ2, sum(q2.^2) + μ2, sum(q3.^2) + μ2
+        # Jacobian
+        d10x = d2x * d4k * d4q # 2 + 4 + 4 = 10d integral
+        
+        # Simplified integrand for spin-flip
+        total = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, k1, k2, k3)
+        den = q12 * q22 * q32
+        # arg1, arg2 = .5 * (2q1 - Δ), .5 * Δ
+        # arg1, arg2 = r'arg1, r'arg2 
+        # trig1, trig2 = sin(arg1),  1/3 * sin(arg2)
+        # trig = trig1 + trig2
+        trig1, trig2, trig3 = sin(.5 * q1'r), sin(.5 * q2'r), sin(.5 * q3'r)
+        trig = 4 / 3 * trig1 * trig2 * trig3
+        total *= trig * d10x / den
+
+        f[1] = real(total)
+        f[2] = imag(total)
+    end
+    integral, err, prob, neval, fail, nregions = sol(integrand, 10, 2; rtol=9e-3, maxevals=70_000_000)
+    # Prefactors 
+    norm = params.norm
+    # Factor of ig^6 = 1, for simplicity, treated later on
+    prf = - dabc2 / Nc / 16 * norm^2
+    # π factors from integration:
+    # Deltas have (2π)^2 * 4π in front. 
+    # Every integration over k gives 1 / (2π)^2 -> 1 / (2π)^(2 * 3)
+    # Every integration over x gives 1 / (4π)
+    # Final integration over q gives 1 / (2π)^2
+    prf /= (4π)^2 * (2π)^8
+
     integral .*= prf
     err .*= abs(prf)
     return integral, err, prob, neval, fail, nregions 
