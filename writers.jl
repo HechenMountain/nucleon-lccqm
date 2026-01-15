@@ -127,7 +127,6 @@ Nothing. Creates a CSV file with the specified filename containing the results.
 function write_gluon_sivers_to_csv(kmin::Real, kmax::Real, n::Integer;
                                    μ::Real, solver::String="vegas")
     k_list = collect(range(kmin, stop=kmax, length=n))
-    n = length(k_list)
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
@@ -169,7 +168,6 @@ function write_2d_odderon_distribution_to_csv(s01::Integer,s02::Integer,kmin::Re
     k_vals = vcat(neg_vals, pos_vals)
     # Create 2D list of [kx, ky] pairs covering the Cartesian product of k_vals.
     k_list = [[kx, ky] for kx in k_vals for ky in k_vals]
-    n = length(k_list)
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
@@ -208,7 +206,6 @@ Nothing. Creates a CSV file with the specified filename containing the results.
 function write_odderon_distribution_to_csv(kmin::Real, kmax::Real, n::Integer;
                                            μ::Real, solver::String="vegas")
     k_list = collect(range(kmin, stop=kmax, length=n))
-    n = length(k_list)
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
@@ -243,7 +240,9 @@ Nothing. Creates a CSV file with the specified filename containing the results.
 function write_odderon_distribution_r_to_csv(rmin::Real, rmax::Real, n::Integer;
                                             μ::Real, solver::String="vegas")
     # log range
-    r_list = 10 .^ range(log10(rmin), log10(rmax), length=n)
+    # r_list = 10 .^ range(log10(rmin), log10(rmax), length=n)
+    # linear reange
+    r_list = collect(range(rmin, stop=rmax, length=n))
     # columns: r, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
@@ -290,7 +289,6 @@ function write_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
     q12, q23 = [q12,0], [q23,0]
     # Build momentum transfer range
     Δ_list = collect(range(Δmin, stop=Δmax, length=n))
-    n = length(Δ_list)
     # Initialize results array
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
@@ -427,7 +425,6 @@ Nothing. Creates a CSV file with the specified filename containing the results.
 """
 function write_f_form_factor_to_csv(s01::Integer,s02::Integer,Δmin::Real=1e-6, Δmax::Real=3.3, n::Integer=27)
     Δ_list = collect(range(Δmin, stop=Δmax, length=n))
-    n = length(Δ_list)
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
@@ -476,10 +473,13 @@ flush(stdout)
 # write_cubic_color_corellator_to_csv(1, 1, 10.01, 30.0, 200, 0, 0; solver="vegas") 
 # write_cubic_color_corellator_to_csv(1, -1, 1e-4, 10.001, 100, 0, 0; solver="vegas")
 
-write_odderon_distribution_r_to_csv(5e-3, 1.0, 36; μ=0, solver="vegas") # <--- Currently running writers.log
+write_odderon_distribution_r_to_csv(1e-5, 0.9e-2, 36; μ=0, solver="vegas") # <--- Currently running writers.log
+write_odderon_distribution_r_to_csv(1e-2, 2, 36; μ=0, solver="vegas")
+write_odderon_distribution_r_to_csv(2.01, 4, 36; μ=0, solver="vegas")
+write_odderon_distribution_r_to_csv(4.01, 6, 36; μ=0, solver="vegas")
 
-# write_odderon_distribution_to_csv(0.2, 2, 37 ; μ=0, solver="cuhre")  # (kmin, kmax, n)
-# write_odderon_distribution_to_csv(1e-5, 0.101, 11; μ=0, solver="cuhre")
+# write_odderon_distribution_to_csv(1e-5, 0.9e-2, 36 ; μ=0, solver="vegas")
+# write_odderon_distribution_to_csv(1e-2, 2, 200 ; μ=0, solver="vegas")
 
 # write_ft_cubic_color_corellator_to_csv(1,1, 1e-4, 3.001, 30; solver="vegas")
 # write_ft_cubic_color_corellator_to_csv(1,-1, 1e-4, 3.001, 30; solver="vegas")

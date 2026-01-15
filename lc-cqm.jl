@@ -131,6 +131,7 @@ Value of momentum space wavefunction
 
 # Notes
 - Momenta should be cartesian.
+- Wavefunction type (exp or pow) is set in parameters.jl
 """
 function momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
                                      k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
@@ -140,7 +141,15 @@ function momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
 
     mq2 = mq^2
     m02 = (sum(k1.^2) + mq2) / x1 + (sum(k2.^2) + mq2) / x2 + (sum(k3.^2) + mq2) / x3
-    ms_wf = exp(-m02 / (2 * β^2))
+    wf_type = params.wf_type
+    if wf_type == "pow"
+        p = params.p
+        ms_wf = (1 + m02 / β^2)^(-p)
+    elseif wf_type == "exp"
+        ms_wf = exp(-m02 / (2 * β^2))
+    else
+        error("Invalid wavefunction type: $wf_type. Must be either \"exp\" or \"pow\".")
+    end
     return ms_wf
 end
 
