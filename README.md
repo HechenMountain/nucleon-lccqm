@@ -1,25 +1,35 @@
 # sivers.jl
 
-**A Julia module to compute the gluon Sivers function in a light-cone constituent quark model** 
+Julia code to compute the gluon Sivers function and related form factors in a light-cone constituent quark model.
 
 ## About
-We parametrize the light-cone baryon wavefunction in terms of its truncated Fock space content. Truncating the Fock space at the minimum Fock sector of three quarks, we compute the electromagnetic Dirac and Pauli form factors and find excellent agreement with the data, and in particular the anomalous magnetic moment is found to be F_2(0) = 1.82. We then obtain the cubic color corellator and after integrating it over the eikonal momenta, the gluon Sivers function at non-vanishing transverse momentum transfer.
+We parametrize the light-cone baryon wavefunction in a truncated three-quark Fock sector, compute the electromagnetic Dirac/Pauli form factors, build the cubic color correlator, and integrate it to obtain the gluon Sivers function at non-vanishing transverse momentum transfer.
 
-## 📦 Features
-- Different parameter sets can be used and are specifed in parameters.jl
+## Features
+- Symbol-based configuration for solvers (`:cuhre`, `:vegas`, `:suave`, `:divonne`) via the shared `Helpers.SOLVERS` map
+- Linear/log spacing controls for writers and sampling utilities (`spacing=:lin` or `:log`)
+- Multiple wavefunction parametrizations selectable in `parameters.jl` (`wf_type = :pow` or `:exp`)
+- Parallel CSV writers for form factors, odderon distributions, and the Sivers function
 
-## 🛠 Installation
-Download the repo and use the writers.jl script to generate the desired output utilizing parallelization.
+## Quick start (Julia REPL)
+```julia
+include("core.jl")
+using .Sivers
 
-Alternatively, include the paths to the module(s) in a Jupyter notebook. E.g.
-- include("/home/.../core.jl")
+# Example: gluon Sivers at k=0.5 GeV with vegas
+res, err, prob, neval, fail, nregions = gluon_sivers(0.5; μ=0.0, solver=:vegas)
+```
 
-and then in a Jupyter cell
-- using .Sivers
+## Batch runs
+Use the writer script with parallel workers:
+```sh
+julia -p 4 writers.jl
+```
+Uncomment or edit the desired `write_*` calls near the end of `writers.jl`. All solver arguments are Symbols (e.g., `solver=:vegas`), and spacing is controlled with `spacing=:lin` or `:log`.
 
-## ⚙️ Configuration
-Adjust model parameters in parameters.jl to try different parameter sets.
+## Notebooks
+See `sivers.ipynb` for interactive examples. It now uses symbol-based solver selection consistent with the Julia API.
 
-## 🚀 Example Usage
-Take a look at sivers.ipynb for examples
+## Configuration
+Adjust model parameters in `parameters.jl` (mass scales, wavefunction type, normalizations). The shared solver map lives in `helpers.jl` as `SOLVERS`.
 

@@ -62,11 +62,11 @@ const dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc ;
 
 Compute the F-type form factor needed to generate F1 and F2.
 
-# Arguments
+Arguments
 - `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
 - `Δ`: 2D momentum transfer vector in cartesian coordinates
 
-# Returns
+Returns
 - `integral::Vector{Float64}`: Array [re, im] containing real and imaginary parts of the form factor
 - `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
 - `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
@@ -74,7 +74,7 @@ Compute the F-type form factor needed to generate F1 and F2.
 - `fail::Int32`: Integration failure flag (0 = success)
 - `nregions::Int32`: Number of subregions used in the integration
 
-# Notes
+Notes
 - `norm` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
@@ -127,10 +127,10 @@ end
 
 Compute the F1 form factor.
 
-# Arguments
+Arguments
 - `Δ`: 2D momentum transfer vector in cartesian coordinates
 
-# Returns
+Returns
 - `result::Vector{Float64}`: Array [re, im] containing real and imaginary parts of the F1 form factor
 - `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
 - `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
@@ -138,7 +138,7 @@ Compute the F1 form factor.
 - `fail::Int32`: Integration failure flag (0 = success)
 - `nregions::Int32`: Number of subregions used in the integration
 
-# Notes
+Notes
 - `norm` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
@@ -153,10 +153,10 @@ end
 
 Compute the F2 form factor.
 
-# Arguments
+Arguments
 - `Δ`: 2D momentum transfer vector in cartesian coordinates
 
-# Returns
+Returns
 - `integral::Vector{Float64}`: Array [re, im] containing real and imaginary parts of the F2 form factor
 - `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
 - `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
@@ -164,7 +164,7 @@ Compute the F2 form factor.
 - `fail::Int32`: Integration failure flag (0 = success)
 - `nregions::Int32`: Number of subregions used in the integration
 
-# Notes
+Notes
 - `norm` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
@@ -199,16 +199,16 @@ end
 
 Compute the unintegrated cubic color correlator by summing one-, two-, and three-body contributions.
 
-# Arguments
+Arguments
 - `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
 - `q1, q2, q3`: Eikonal momenta (2D cartesian vectors)
 - `x1, x2, x3`: Parton x values satisfying x1 + x2 + x3 = 1
 - `k1, k2, k3`: Transverse momenta (2D cartesian vectors)
 
-# Returns
+Returns
 - `ccc::ComplexF64`: 'Value of the cubic color correlator for the given spin configuration and kinematics
 
-# Notes
+Notes
 - This is G_3ΛΛ' stripped of the integrals and factor of 1/(4π)^2/(2π)^2 in the draft
 - Momenta must be in cartesian coordinates
 """
@@ -294,30 +294,28 @@ end
 """
     integrate_cubic_color_correlator(s01::Integer,s02::Integer,
                                      q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real};
-                                     solver::String="vegas")
+                                     solver::Symbol=:vegas)
 
 Compute the integrated cubic color correlator.
 
-# Arguments
+Arguments
 - `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
 - `q1, q2, q3`: Eikonal momenta (2D cartesian vectors)
-- `solver`: Integration strategy (default: "cuhre", options: "cuhre", "vegas", "divonne", "suave")
+- `solver`: Integration strategy. Options: :cuhre, :vegas, :divonne, :suave. Default is :vegas
 
-# Returns
+Returns
 - ToDo
 
-# Notes
+Notes
 - This is G_3ΛΛ' including the integrals to run some checks.
 - Momenta must be in cartesian coordinates
 """
 function integrate_cubic_color_correlator(s01::Integer,s02::Integer,
                                           q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real};
-                                          solver::String="vegas")
-    sol =   solver == "cuhre" ? cuhre :
-            solver == "vegas" ? vegas :
-            solver == "suave" ? suave :
-            solver == "divonne" ? divonne :
-            throw(ArgumentError("solver must be one of: cuhre, vegas, divonne, suave"))
+                                          solver::Symbol=:vegas)
+    sol = get(hp.SOLVERS, solver) do
+        throw(ArgumentError("solver must be one of: :cuhre, :vegas, :divonne, :suave"))
+    end
 
     function integrand(x,f)
         # Regulate endpoint singularities
@@ -361,31 +359,29 @@ end
 
 """
     ft_cubic_color_correlator(s01::Integer,s02::Integer,
-                              r::Vector{<:Real}, solver::String="vegas")
+                              rabs::Real, solver::Symbol=:vegas)
 
 Compute the Fourier transform of the integrated cubic color correlator.
 
-# Arguments
+Arguments
 - `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
 - `rabs`: Absolute value of  transverse coordinate vector
-- `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
+- `solver`: Integration strategy. Options: :cuhre, :vegas, :divonne, :suave. Default is :vegas
 
-# Returns
+Returns
 - ToDo
 
-# Notes
+Notes
 - We are Fourier transforming and integrating the cubic correlator in one go because
   of the long tail in kT
 - Uses the Hankel transform to reduce dimensionality
 - Momenta must be in cartesian coordinates
 """
 function ft_cubic_color_correlator(s01::Integer,s02::Integer,
-                                   rabs::Real; solver::String="vegas")
-    sol =   solver == "cuhre" ? cuhre :
-            solver == "vegas" ? vegas :
-            solver == "suave" ? suave :
-            solver == "divonne" ? divonne :
-            throw(ArgumentError("solver must be one of: cuhre, vegas, divonne, suave"))
+                                   rabs::Real; solver::Symbol=:vegas)
+    sol = get(hp.SOLVERS, solver) do
+        throw(ArgumentError("solver must be one of: :cuhre, :vegas, :divonne, :suave"))
+    end
 
     function integrand(x,f)
         # Regulate endpoint singularities
@@ -441,18 +437,18 @@ end
 """
     odderon_distribution(s01::Integer,s02::Integer,
                          Δ::Vector{<:Real}, k::Vector{<:Real};
-                         μ::Real=0.00,solver::String="vegas")
+                         μ::Real=0.00, solver::Symbol=:vegas)
 
 Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 
-# Arguments
+Arguments
 - `s01, s02`: Spin of ingoing/outgoing proton (each must be either +1 or -1)
 - `Δ`: 2D momentum transfer vector in cartesian coordinates
 - `k`: 2D transverse momentum transfer vector in cartesian coordinates
 - `μ`: Regulator for integrand (default: 0.00)
-- `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
+- `solver`: Integration strategy. Options: :cuhre, :vegas, :divonne, :suave. Default is :vegas
 
-# Returns
+Returns
 - `integral::Vector{Float64}`: Array [re, im] containing real and imaginary parts of O(k,Δ) * k^2
 - `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
 - `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
@@ -460,7 +456,7 @@ Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 - `fail::Int32`: Integration failure flag (0 = success)
 - `nregions::Int32`: Number of subregions used in the integration
 
-# Notes
+Notes
 - Currently only valid for Δ = [0,0], corresponds to OΛΛ'(k,Δ) in the draft
 - Factor 1/k^2 is omitted here and added later in the Sivers function definition
 - Momenta must be in cartesian coordinates
@@ -471,16 +467,14 @@ Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
 """
 function odderon_distribution(s01::Integer,s02::Integer,
                               Δ::Vector{<:Real}, k::Vector{<:Real};
-                              μ::Real=0.00,solver::String="vegas")
+                              μ::Real=0.00,solver::Symbol=:vegas)
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
     
-    sol =   solver == "cuhre" ? cuhre :
-            solver == "vegas" ? vegas :
-            solver == "suave" ? suave :
-            solver == "divonne" ? divonne :
-            throw(ArgumentError("solver must be one of: cuhre, vegas, divonne, suave"))
+    sol = get(hp.SOLVERS, solver) do
+        throw(ArgumentError("solver must be one of: :cuhre, :vegas, :divonne, :suave"))
+    end
 
     function integrand(x,f)
         # Regulate endpoint singularities
@@ -565,18 +559,18 @@ end
 """
     odderon_distribution_r(s01::Integer,s02::Integer,
                          Δ::Vector{<:Real}, r::Vector{<:Real};
-                         μ::Real=0.00,solver::String="vegas")
+                         μ::Real=0.00, solver::Symbol=:vegas)
 
 Compute the Odderon distribution O in position space r and Δ.
 
-# Arguments
+Arguments
 - `s01, s02`: Spin of ingoing/outgoing proton (each must be either +1 or -1)
 - `Δ`: 2D momentum transfer vector in cartesian coordinates
 - `r`: 2D position vector in cartesian coordinates
 - `μ`: Regulator for integrand (default: 0.00)
-- `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
+- `solver`: Integration strategy. Options: :cuhre, :vegas, :divonne, :suave. Default is :vegas
 
-# Returns
+Returns
 - `integral::Vector{Float64}`: Array [re, im] containing real and imaginary parts of O(r,Δ)
 - `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
 - `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
@@ -584,7 +578,7 @@ Compute the Odderon distribution O in position space r and Δ.
 - `fail::Int32`: Integration failure flag (0 = success)
 - `nregions::Int32`: Number of subregions used in the integration
 
-# Notes
+Notes
 - vectors must be in cartesian coordinates
 - `norm` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
 - Result is generally complex
@@ -592,16 +586,14 @@ Compute the Odderon distribution O in position space r and Δ.
 """
 function odderon_distribution_r(s01::Integer,s02::Integer,
                               Δ::Vector{<:Real}, r::Vector{<:Real};
-                              μ::Real=0.00,solver::String="vegas")
+                              μ::Real=0.00,solver::Symbol=:vegas)
+    sol = get(hp.SOLVERS, solver) do
+        throw(ArgumentError("solver must be one of: :cuhre, :vegas, :divonne, :suave"))
+    end
+    
     if !iszero(Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
-    
-    sol =   solver == "cuhre" ? cuhre :
-            solver == "vegas" ? vegas :
-            solver == "suave" ? suave :
-            solver == "divonne" ? divonne :
-            throw(ArgumentError("solver must be one of: cuhre, vegas, divonne, suave"))
 
     function integrand(x,f)
         # Regulate endpoint singularities
@@ -663,16 +655,16 @@ function odderon_distribution_r(s01::Integer,s02::Integer,
 end
 
 """
-    gluon_sivers(k::Real;μ::Real=0.00,solver::String="vegas")
+    gluon_sivers(k::Real; μ::Real=0.00, solver::Symbol=:vegas)
 
 Compute the gluon Sivers function for momentum transfer k.
 
-# Arguments
+Arguments
 - `k`: Modulus of transverse momentum transfer
 - `μ`: Regulator for integrand (default: 0.01)
-- `solver`: Integration strategy (default: "vegas", options: "cuhre", "vegas", "divonne", "suave")
+- `solver`: Integration strategy. Options: :cuhre, :vegas, :divonne, :suave. Default is :vegas
 
-# Returns
+Returns
 - `result::Vector{Float64}`: Array [re, im] containing real and imaginary parts of the gluon Sivers function f_{1T}^{⊥ g}(x,k)
 - `err::Vector{Float64}`: Array [err_re, err_im] containing error estimates for real and imaginary parts
 - `prob::Vector{Float64}`: Array [prob_re, prob_im] containing probability estimates for each component
@@ -680,13 +672,13 @@ Compute the gluon Sivers function for momentum transfer k.
 - `fail::Int32`: Integration failure flag (0 = success)
 - `nregions::Int32`: Number of subregions used in the integration
 
-# Notes
+Notes
 - Assumes the 2D k_T vector is [kx, 0]
 - For k not along x, one would need to compute both (s01, s02) = (1, -1) and (-1, 1) 
   and sum them similar to `f2_form_factor`
 - Result is real but we keep the imaginary part for consistency
 """
-function gluon_sivers(k::Real; μ::Real=0.00, solver::String="vegas")
+function gluon_sivers(k::Real; μ::Real=0.00, solver::Symbol=:vegas)
     # Spin flip
     s01 = 1
     s02 = -1

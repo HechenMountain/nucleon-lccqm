@@ -7,8 +7,16 @@ export gell_mann, sun_symbols,
 """
     gell_mann(n)
 
-Return a vector of (n^2 - 1) SU(n) generators as matrices
-with normalization tr (t^a t^b) = delta^{ab} / 2.
+Construct SU(n) generators normalized as tr(t^a t^b) = δ^{ab} / 2.
+
+Arguments
+- `n::Int`: SU(n) dimension
+
+Returns
+- `Vector{Matrix{ComplexF64}}`: generators ordered symmetric, antisymmetric, then diagonal
+
+Notes
+- Generators follow the physics normalization; canonical matrices are rescaled by 1/2
 """
 function gell_mann(n::Int)
     gens = []
@@ -54,11 +62,17 @@ end
 """
     sun_symbols(gens)
 
-Compute f^{abc} and d^{abc} symbols for the given generators gens.
+Compute SU(n) structure constants for Hermitian, traceless generators gens.
 
-Returns (fabc,dabc) where:
-    f^{abc} = -2i Tr(t^a [t^b, t^c])
-    d^{abc} = 1/2 Tr(t^a {t^b, t^c})
+Arguments
+- `gens::AbstractVector{<:AbstractMatrix}`: generators normalized with tr(t^a t^b) = δ^{ab} / 2
+
+Returns
+- `fabc::Array{Float64,3}`: antisymmetric structure constants from f^{abc} = -2im tr(t^a [t^b, t^c])
+- `dabc::Array{Float64,3}`: symmetric structure constants from d^{abc} = 2 tr(t^a {t^b, t^c})
+
+Notes
+- Results are real for properly normalized Hermitian generators and assume length(gens) = n^2 - 1
 """
 function sun_symbols(gens)
     dim = length(gens)
@@ -84,14 +98,15 @@ end
 """
     dabc(a, b, c; n=3)
 Compute the symmetric d^{abc} symbol for SU(n).
-# Arguments
-- `a::Integer`: First index
-- `b::Integer`: Second index
-- `c::Integer`: Third index
-- `n::Integer=3`: Dimension of the SU(n) group (default is 3)
 
-# Returns
-- d^{abc} symbol as Float64
+Arguments
+- `a::Integer`: first index
+- `b::Integer`: second index
+- `c::Integer`: third index
+- `n::Integer=3`: SU(n) dimension (default 3)
+
+Returns
+- `Float64`: d^{abc} symbol
 """
 function dabc(a::Integer, b::Integer, c::Integer; n::Integer=3)
     gens = gell_mann(n)
@@ -102,14 +117,15 @@ end
 """
     fabc(a, b, c; n=3)
 Compute the antisymmetric f^{abc} symbol for SU(n).
-# Arguments
-- `a::Integer`: First index
-- `b::Integer`: Second index
-- `c::Integer`: Third index
-- `n::Integer=3`: Dimension of the SU(n) group (default is 3)
 
-# Returns
-- f^{abc} symbol as Float64
+Arguments
+- `a::Integer`: first index
+- `b::Integer`: second index
+- `c::Integer`: third index
+- `n::Integer=3`: SU(n) dimension (default 3)
+
+Returns
+- `Float64`: f^{abc} symbol
 """
 function fabc(a::Integer, b::Integer, c::Integer; n::Integer=3)
     gens = gell_mann(n)

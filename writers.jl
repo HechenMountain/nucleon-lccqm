@@ -41,17 +41,16 @@ flush(stdout)
 # ======================
 
 """
-        write_cuba_to_file(filename::String, results::SharedMatrix{Float64})
+    write_cuba_to_file(filename::String, results::SharedMatrix{Float64})
 
 Write results from a computation to a CSV file.
 
-# Arguments
-- `filename`: The name of the output CSV file
-- `results`: A shared matrix containing the computation results. Each row contains:
-             [k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions]
+Arguments
+- `filename`: output CSV filename
+- `results`: shared matrix with rows `[k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions]`
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Returns
+- Nothing. Writes the CSV file.
 """
 function write_cuba_to_file(filename::String,results::SharedMatrix{Float64})
     n = length(results[:,1])
@@ -76,14 +75,17 @@ function write_cuba_to_file(filename::String,results::SharedMatrix{Float64})
 end
 
 """
-    write_2d_cuba_to_file(filename::String, k_list::AbstractVector{<:AbstractVector}, results::AbstractMatrix{Float64})
+        write_2d_cuba_to_file(filename::String, k_list::AbstractVector{<:AbstractVector}, results::AbstractMatrix{Float64})
 
-Write a CSV file for 2D k-grid results with columns: k_x,k_y,results
+Write a CSV for 2D k-grid results with columns `k_x,k_y,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions`.
 
-- `k_list` should be an array of [kx,ky] pairs (one per row of `results`).
-- `results` is a matrix with numeric fields for each k (it may include the k magnitude in col 1
-  if present). The writer will stringify columns 1..end of `results` for each row into a single
-  bracketed, comma-separated `results` field in the CSV.
+Arguments
+- `filename`: output CSV filename
+- `k_list`: array of `[kx, ky]` pairs, one per row of `results`
+- `results`: numeric matrix mirroring `write_cuba_to_file` column order; column 1 may hold |k|
+
+Returns
+- Nothing. Writes the CSV file.
 """
 function write_2d_cuba_to_file(filename::String, k_list::AbstractVector{<:AbstractVector}, results::AbstractMatrix{Float64})
     n = length(k_list)
@@ -111,22 +113,30 @@ function write_2d_cuba_to_file(filename::String, k_list::AbstractVector{<:Abstra
 end
 
 """
-    write_gluon_sivers_to_csv(kmin::Real, kmax::Real, n::Integer; μ::Real, solver::String="vegas")
-Write result of gluon_sivers for |k| in [kmin,kmax] GeV with n points.
-    
-# Arguments
-- `kmin`: Minimum value of k in GeV
-- `kmax`: Maximum value of k in GeV
-- `n`: Number of points in the k range
-- `μ`: Regulator for integration
-- `solver`: Integration strategy. Options: "vegas" (default), "cuhre", "divonne", "suave"
+    write_gluon_sivers_to_csv(kmin::Real, kmax::Real, n::Integer; μ::Real, solver::Symbol=:vegas, spacing::Symbol=:lin)
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Write gluon Sivers values for |k| ∈ [kmin, kmax] into a CSV.
+
+Arguments
+- `kmin`: minimum k in GeV
+- `kmax`: maximum k in GeV
+- `n`: number of k points
+- `μ`: regulator for the integration
+- `solver`: integration backend (:vegas default, or :cuhre, :divonne, :suave)
+- `spacing`: spacing type (:lin default or :log)
+
+Returns
+- Nothing. Writes `output_gluon_sivers_*.csv`.
 """
 function write_gluon_sivers_to_csv(kmin::Real, kmax::Real, n::Integer;
-                                   μ::Real, solver::String="vegas")
-    k_list = collect(range(kmin, stop=kmax, length=n))
+                                   μ::Real, solver::Symbol=:vegas, spacing::Symbol=:lin)
+    if spacing == :log
+        k_list = 10 .^ collect(range(log10(kmin), log10(kmax), length=n))
+    elseif spacing == :lin
+        k_list = collect(range(kmin, stop=kmax, length=n))
+    else
+        error("Invalid spacing option: $spacing. Use :lin or :log.")
+    end
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
@@ -144,27 +154,35 @@ function write_gluon_sivers_to_csv(kmin::Real, kmax::Real, n::Integer;
 end
 
 """
-    write_2d_odderon_distribution_to_csv(s01::Integer,s02::Integer,kmin::Real, kmax::Real, n::Integer; μ::Real, solver::String="vegas")
+    write_2d_odderon_distribution_to_csv(s01::Integer, s02::Integer, kmin::Real, kmax::Real, n::Integer; μ::Real, solver::Symbol=:vegas, spacing::Symbol=:lin)
 
-Write result of odderon_distribution for k_x,k_y in [-kmax,-kmin] ∪ [kmin,kmax] GeV with n points per side.
+Write odderon_distribution on a 2D k grid into a CSV.
 
-# Arguments
-- `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
-- `kmin`: Minimum value of k in GeV
-- `kmax`: Maximum value of k in GeV
-- `n`: Number of points per side (per positive/negative axis)
-- `μ`: Regulator for integration
-- `solver`: Integration strategy. Options: "vegas" (default), "cuhre", "divonne", "suave"
+Arguments
+- `s01, s02`: proton spins (+1 or -1)
+- `kmin`: minimum |k| in GeV
+- `kmax`: maximum |k| in GeV
+- `n`: number of points per side (positive and negative axes)
+- `μ`: regulator for the integration
+- `solver`: integration backend (:vegas default, or :cuhre, :divonne, :suave)
+- `spacing`: spacing type (:lin default or :log)
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Returns
+- Nothing. Writes `output_2d_*.csv`.
 """
 function write_2d_odderon_distribution_to_csv(s01::Integer,s02::Integer,kmin::Real, kmax::Real, n::Integer;
-                                              μ::Real, solver::String="vegas")
+                                              μ::Real, solver::Symbol=:vegas, spacing::Symbol=:lin)
     # Build 1D k values excluding the central region [-kmin, kmin].
     # We take negative side from -kmax to -kmin and positive side from kmin to kmax.
-    neg_vals = collect(range(-kmax, stop=-kmin, length=n))
-    pos_vals = collect(range(kmin, stop=kmax, length=n))
+    if spacing == :log
+        neg_vals = -10 .^ collect(range(log10(kmax), log10(kmin), length=n))
+        pos_vals = 10 .^ collect(range(log10(kmin), log10(kmax), length=n))
+    elseif spacing == :lin
+        neg_vals = collect(range(-kmax, stop=-kmin, length=n))
+        pos_vals = collect(range(kmin, stop=kmax, length=n))
+    else
+        error("Invalid spacing option: $spacing. Use :lin or :log.")
+    end
     k_vals = vcat(neg_vals, pos_vals)
     # Create 2D list of [kx, ky] pairs covering the Cartesian product of k_vals.
     k_list = [[kx, ky] for kx in k_vals for ky in k_vals]
@@ -189,23 +207,30 @@ end
 
 
 """
-    write_odderon_distribution_to_csv(kmin::Real, kmax::Real, n::Integer; μ::Real, solver::String="vegas")
+    write_odderon_distribution_to_csv(kmin::Real, kmax::Real, n::Integer; μ::Real, solver::Symbol=:vegas, spacing::Symbol=:lin)
 
-Write result of odderon_distribution for |k| in [kmin,kmax] GeV with n points.
+Write odderon_distribution for |k| ∈ [kmin, kmax] into a CSV.
 
-# Arguments
-- `kmin`: Minimum value of k in GeV
-- `kmax`: Maximum value of k in GeV
-- `n`: Number of points in the k range
-- `μ`: Regulator for integration
-- `solver`: Integration strategy. Options: "vegas" (default), "cuhre", "divonne", "suave"
+Arguments
+- `kmin`: minimum k in GeV
+- `kmax`: maximum k in GeV
+- `n`: number of k points
+- `μ`: regulator for the integration
+- `solver`: integration backend (:vegas default, or :cuhre, :divonne, :suave)
+- `spacing`: spacing type (:lin default or :log)
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Returns
+- Nothing. Writes `output_*.csv`.
 """
 function write_odderon_distribution_to_csv(kmin::Real, kmax::Real, n::Integer;
-                                           μ::Real, solver::String="vegas")
-    k_list = collect(range(kmin, stop=kmax, length=n))
+                                           μ::Real, solver::Symbol=:vegas, spacing::Symbol=:lin)
+    if spacing == :log
+        k_list = 10 .^ collect(range(log10(kmin), log10(kmax), length=n))
+    elseif spacing == :lin
+        k_list = collect(range(kmin, stop=kmax, length=n))
+    else
+        error("Invalid spacing option: $spacing. Use :lin or :log.")
+    end
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
@@ -223,26 +248,30 @@ function write_odderon_distribution_to_csv(kmin::Real, kmax::Real, n::Integer;
 end
 
 """
-    write_odderon_distribution_r_to_csv(rmin::Real, rmax::Real, n::Integer; μ::Real, [solver]::String="cuhre")
+    write_odderon_distribution_r_to_csv(rmin::Real, rmax::Real, n::Integer; μ::Real, solver::Symbol=:vegas, spacing::Symbol=:lin)
 
-Write result of odderon_distribution_r for |r| in [rmin,rmax] GeV^-1 with n logarithmically spaced points.
+Write odderon_distribution_r for |r| ∈ [rmin, rmax] (GeV⁻¹) into a CSV.
 
-# Arguments
-- `rmin`: Minimum value of r in GeV^-1
-- `rmax`: Maximum value of r in GeV^-1
-- `n`: Number of points
-- `μ`: Regulator for integration
-- `solver`: Integration strategy. Options: "vegas" (default), "cuhre", "divonne", "suave"
+Arguments
+- `rmin`: minimum r in GeV⁻¹
+- `rmax`: maximum r in GeV⁻¹
+- `n`: number of r points
+- `μ`: regulator for the integration
+- `solver`: integration backend (:vegas default, or :cuhre, :divonne, :suave)
+- `spacing`: spacing type (:lin default or :log)
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Returns
+- Nothing. Writes `output_r_*.csv`.
 """
 function write_odderon_distribution_r_to_csv(rmin::Real, rmax::Real, n::Integer;
-                                            μ::Real, solver::String="vegas")
-    # log range
-    # r_list = 10 .^ range(log10(rmin), log10(rmax), length=n)
-    # linear reange
-    r_list = collect(range(rmin, stop=rmax, length=n))
+                                            μ::Real, solver::Symbol=:vegas, spacing::Symbol=:lin)
+    if spacing == :log
+        r_list = 10 .^ collect(range(log10(rmin), log10(rmax), length=n))
+    elseif spacing == :lin
+        r_list = collect(range(rmin, stop=rmax, length=n))
+    else
+        error("Invalid spacing option: $spacing. Use :lin or :log.")
+    end
     # columns: r, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
@@ -260,35 +289,41 @@ function write_odderon_distribution_r_to_csv(rmin::Real, rmax::Real, n::Integer;
 end
 
 """
-    write_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
-                                        Δmin::Real, Δmax::Real, n::Integer,
-                                        q12::Real, q23::Real;
-                                        solver::String="vegas")
+    write_cubic_color_corellator_to_csv(s01::Integer, s02::Integer,
+                                         Δmin::Real, Δmax::Real, n::Integer,
+                                         q12::Real, q23::Real;
+                                         solver::Symbol=:vegas, spacing::Symbol=:lin)
 
-Write result of odderon_distribution for |Δ| in [Δmin,Δmax] GeV with n points.
+Write integrated cubic color correlator values for |Δ| ∈ [Δmin, Δmax] into a CSV.
 
-# Arguments
-- `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
-- `Δmin`: Minimum value of Δ in GeV
-- `Δmax`: Maximum value of Δ in GeV
-- `n`: Number of points in the Δ range
-- `q12, q23`: Values of q1 - q2 and q2 - q3 in GeV (2D cartesian vectors assumed to be along x axis)
-- `solver`: Integration strategy. Options: "vegas" (default), "cuhre", "divonne", "suave"
+Arguments
+- `s01, s02`: proton spins (+1 or -1)
+- `Δmin`, `Δmax`: Δ range in GeV
+- `n`: number of Δ points
+- `q12, q23`: q1 - q2 and q2 - q3 values (assumed along x)
+- `solver`: integration backend (:vegas default, or :cuhre, :divonne, :suave)
+- `spacing`: spacing type (:lin default or :log)
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Returns
+- Nothing. Writes `output_ccc_*.csv`.
 
-# Notes
-We assume momentum transfer in x direction.
+Notes
+- Assumes momentum transfer along x.
 """
 function write_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
                                              Δmin::Real, Δmax::Real, n::Integer,
                                              q12::Real, q23::Real;
-                                             solver::String="vegas")
+                                             solver::Symbol=:vegas, spacing::Symbol=:lin)
     # Convert momenta to vectors
     q12, q23 = [q12,0], [q23,0]
     # Build momentum transfer range
-    Δ_list = collect(range(Δmin, stop=Δmax, length=n))
+    if spacing == :log
+        Δ_list = 10 .^ collect(range(log10(Δmin), log10(Δmax), length=n))
+    elseif spacing == :lin
+        Δ_list = collect(range(Δmin, stop=Δmax, length=n))
+    else
+        error("Invalid spacing option: $spacing. Use :lin or :log.")
+    end
     # Initialize results array
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
@@ -308,26 +343,32 @@ function write_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
 end
 
 """
-    write_ft_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
+    write_ft_cubic_color_corellator_to_csv(s01::Integer, s02::Integer,
                                            rmin::Real, rmax::Real, n::Integer;
-                                           solver::String="cuhre")
+                                           solver::Symbol=:vegas, spacing::Symbol=:lin)
 
-Write result of Fourier transform of odderon_distribution for |r| in [rmin,rmax] GeV with n points.
+Write Fourier-transformed cubic color correlator for |r| ∈ [rmin, rmax] into a CSV.
 
-# Arguments
-- `s01, s02`: Spins of the ingoing/outgoing protons (each must be either +1 or -1)
-- `rmin`: Minimum value of r in GeV^-1
-- `rmax`: Maximum value of r in GeV^-1
-- `n`: Number of points in the r range       
-- `solver`: Integration strategy. Options: "vegas" (default), "cuhre", "divonne", "suave"
+Arguments
+- `s01, s02`: proton spins (+1 or -1)
+- `rmin`, `rmax`: r range in GeV⁻¹
+- `n`: number of r points
+- `solver`: integration backend (:vegas default, or :cuhre, :divonne, :suave)
+- `spacing`: spacing type (:lin default or :log)
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Returns
+- Nothing. Writes `output_ft_ccc_*.csv`.
 """
 function write_ft_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
                                                 rmin::Real, rmax::Real, n::Integer;
-                                                solver::String="vegas")
-    r_list = collect(range(rmin, stop=rmax, length=n))
+                                                solver::Symbol=:vegas, spacing::Symbol=:lin)
+    if spacing == :log
+        r_list = 10 .^ collect(range(log10(rmin), log10(rmax), length=n))
+    elseif spacing == :lin
+        r_list = collect(range(rmin, stop=rmax, length=n))
+    else
+        error("Invalid spacing option: $spacing. Use :lin or :log.")
+    end
     n = length(r_list)
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
@@ -346,20 +387,26 @@ function write_ft_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
 end
 
 """
-    write_f1_form_factor_to_csv(Δmin::Real=0.0, Δmax::Real=3.3, n::Integer=27)
+    write_f1_form_factor_to_csv(Δmin::Real=0.0, Δmax::Real=3.3, n::Integer=27; spacing::Symbol=:lin)
 
-Write result of F1 form factor for |Δ| in [0,3.3] GeV
+Write F1 form factor values for |Δ| ∈ [Δmin, Δmax] into a CSV.
 
-# Arguments
-- `Δmin`: Minimum value of Δ in GeV
-- `Δmax`: Maximum value of Δ in GeV
-- `n`: Number of points in the Δ range
+Arguments
+- `Δmin`, `Δmax`: Δ range in GeV
+- `n`: number of Δ points
+- `spacing`: spacing type (:lin default or :log)
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Returns
+- Nothing. Writes `output_f1.csv`.
 """
-function write_f1_form_factor_to_csv(Δmin::Real=0.0, Δmax::Real=3.3, n::Integer=27)
-    Δ_list = collect(range(Δmin, stop=Δmax, length=n))
+function write_f1_form_factor_to_csv(Δmin::Real=0.0, Δmax::Real=3.3, n::Integer=27; spacing::Symbol=:lin)
+    if spacing == :log
+        Δ_list = 10 .^ collect(range(log10(Δmin), log10(Δmax), length=n))
+    elseif spacing == :lin
+        Δ_list = collect(range(Δmin, stop=Δmax, length=n))
+    else
+        error("Invalid spacing option: $spacing. Use :lin or :log.")
+    end
     n = length(Δ_list)
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
@@ -378,20 +425,26 @@ function write_f1_form_factor_to_csv(Δmin::Real=0.0, Δmax::Real=3.3, n::Intege
 end
 
 """
-    write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δmax::Real=3.3, n::Integer=27)
+    write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δmax::Real=3.3, n::Integer=27; spacing::Symbol=:lin)
 
-Write result of F2 form factor for |Δ| in [1e-6,3.3] GeV
+Write F2 form factor values for |Δ| ∈ [Δmin, Δmax] into a CSV.
 
-# Arguments
-- `Δmin`: Minimum value of Δ in GeV
-- `Δmax`: Maximum value of Δ in GeV
-- `n`: Number of points in the Δ range
+Arguments
+- `Δmin`, `Δmax`: Δ range in GeV
+- `n`: number of Δ points
+- `spacing`: spacing type (:lin default or :log)
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Returns
+- Nothing. Writes `output_f2.csv`.
 """
-function write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δmax::Real=3.3, n::Integer=27)
-    Δ_list = collect(range(Δmin, stop=Δmax, length=n))
+function write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δmax::Real=3.3, n::Integer=27; spacing::Symbol=:lin)
+    if spacing == :log
+        Δ_list = 10 .^ collect(range(log10(Δmin), log10(Δmax), length=n))
+    elseif spacing == :lin
+        Δ_list = collect(range(Δmin, stop=Δmax, length=n))
+    else
+        error("Invalid spacing option: $spacing. Use :lin or :log.")
+    end
     n = length(Δ_list)
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
@@ -410,21 +463,27 @@ function write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δmax::Real=3.3, n::Integ
 end
 
 """
-    write_f_form_factor_to_csv(s01::Integer,s02::Integer,Δmin::Real=1e-6, Δmax::Real=3.3, n::Integer=27)
+    write_f_form_factor_to_csv(s01::Integer, s02::Integer, Δmin::Real=1e-6, Δmax::Real=3.3, n::Integer=27; spacing::Symbol=:lin)
 
-Write result of general F-type form factor for |Δ| in [1e-6,3.3] GeV
+Write general F-type form factor for |Δ| ∈ [Δmin, Δmax] into a CSV.
 
-# Arguments
-- `s01, s02`: Spin of ingoing proton (must be either +1 or -1)
-- `Δmin`: Minimum value of Δ in GeV
-- `Δmax`: Maximum value of Δ in GeV
-- `n`: Number of points in the Δ range
+Arguments
+- `s01, s02`: ingoing/outgoing proton spins (+1 or -1)
+- `Δmin`, `Δmax`: Δ range in GeV
+- `n`: number of Δ points
+- `spacing`: spacing type (:lin default or :log)
 
-# Returns
-Nothing. Creates a CSV file with the specified filename containing the results.
+Returns
+- Nothing. Writes `output_f_*.csv`.
 """
-function write_f_form_factor_to_csv(s01::Integer,s02::Integer,Δmin::Real=1e-6, Δmax::Real=3.3, n::Integer=27)
-    Δ_list = collect(range(Δmin, stop=Δmax, length=n))
+function write_f_form_factor_to_csv(s01::Integer,s02::Integer,Δmin::Real=1e-6, Δmax::Real=3.3, n::Integer=27; spacing::Symbol=:lin)
+    if spacing == :log
+        Δ_list = 10 .^ collect(range(log10(Δmin), log10(Δmax), length=n))
+    elseif spacing == :lin
+        Δ_list = collect(range(Δmin, stop=Δmax, length=n))
+    else
+        error("Invalid spacing option: $spacing. Use :lin or :log.")
+    end
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
@@ -451,9 +510,9 @@ flush(stdout)
 # write_f1_form_factor_to_csv()
 # write_f2_form_factor_to_csv()
 # write_f_form_factor_to_csv(1, -1)
-# write_2d_odderon_distribution_to_csv(1,-1, 1e-4, 1.001, 21; μ=0.0, solver="vegas")  # 0.05 step ≈ 21 points per side (kmin,kmax,n)
-# write_2d_odderon_distribution_to_csv(-1,1, 1e-4, 1.001, 21; μ=0.0, solver="vegas")
-# write_2d_odderon_distribution_to_csv(1,-1, 1e-4, 0.25, 25; μ=0.0, solver="vegas")  # 0.01 step ≈ 25 points per side (kmin,kmax,n)
+# write_2d_odderon_distribution_to_csv(1,-1, 1e-4, 1.001, 21; μ=0.0, solver=:vegas)  # 0.05 step ≈ 21 points per side (kmin,kmax,n)
+# write_2d_odderon_distribution_to_csv(-1,1, 1e-4, 1.001, 21; μ=0.0, solver=:vegas)
+# write_2d_odderon_distribution_to_csv(1,-1, 1e-4, 0.25, 25; μ=0.0, solver=:vegas)  # 0.01 step ≈ 25 points per side (kmin,kmax,n)
 
 # Single function calls in parallel using pmap
 # xs = [
@@ -469,20 +528,24 @@ flush(stdout)
 #     println(r)
 # end
 # println(Sivers.odderon_distribution(1,-1,[0,0],[0.5001,0.3501]))
-# write_cubic_color_corellator_to_csv(1, 1, 1e-4, 10.001, 100, 0, 0; solver="vegas")  # (Δmin, Δmax, n, q12, q23)
-# write_cubic_color_corellator_to_csv(1, 1, 10.01, 30.0, 200, 0, 0; solver="vegas") 
-# write_cubic_color_corellator_to_csv(1, -1, 1e-4, 10.001, 100, 0, 0; solver="vegas")
+# write_cubic_color_corellator_to_csv(1, 1, 1e-4, 10.001, 100, 0, 0; solver=:vegas)  # (Δmin, Δmax, n, q12, q23)
+# write_cubic_color_corellator_to_csv(1, 1, 10.01, 30.0, 200, 0, 0; solver=:vegas) 
+# write_cubic_color_corellator_to_csv(1, -1, 1e-4, 10.001, 100, 0, 0; solver=:vegas)
 
-write_odderon_distribution_r_to_csv(1e-5, 0.9e-2, 36; μ=0, solver="vegas") # <--- Currently running writers.log
-write_odderon_distribution_r_to_csv(1e-2, 2, 36; μ=0, solver="vegas")
-write_odderon_distribution_r_to_csv(2.01, 4, 36; μ=0, solver="vegas")
-write_odderon_distribution_r_to_csv(4.01, 6, 36; μ=0, solver="vegas")
+# write_odderon_distribution_r_to_csv(0.01, 1, 36; μ=0, solver=:vegas,spacing=:log)
+# write_odderon_distribution_r_to_csv(1.01, 4, 36; μ=0, solver=:vegas)
+# write_odderon_distribution_r_to_csv(4.01, 7, 36; μ=0, solver=:vegas)
+# write_odderon_distribution_r_to_csv(7.01, 10, 36; μ=0, solver=:vegas)
+# write_odderon_distribution_r_to_csv(10.01, 13, 36; μ=0, solver=:vegas)
+# write_odderon_distribution_r_to_csv(13.01, 16, 36; μ=0, solver=:vegas)
+# write_odderon_distribution_r_to_csv(16.01, 19, 36; μ=0, solver=:vegas)
+# write_odderon_distribution_r_to_csv(19.01, 20, 10; μ=0, solver=:vegas)
 
-# write_odderon_distribution_to_csv(1e-5, 0.9e-2, 36 ; μ=0, solver="vegas")
-# write_odderon_distribution_to_csv(1e-2, 2, 200 ; μ=0, solver="vegas")
+write_odderon_distribution_to_csv(1e-5, 0.9e-2, 36 ; μ=0, solver=:vegas) # <--- Currently running writers.log
+write_odderon_distribution_to_csv(1e-2, 2, 200 ; μ=0, solver=:vegas)
 
-# write_ft_cubic_color_corellator_to_csv(1,1, 1e-4, 3.001, 30; solver="vegas")
-# write_ft_cubic_color_corellator_to_csv(1,-1, 1e-4, 3.001, 30; solver="vegas")
+# write_ft_cubic_color_corellator_to_csv(1,1, 1e-4, 3.001, 30; solver=:vegas)
+# write_ft_cubic_color_corellator_to_csv(1,-1, 1e-4, 3.001, 30; solver=:vegas)
 println(Dates.now(), " Finished writers.")
 
 # ======================
