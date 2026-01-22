@@ -1,0 +1,34 @@
+# Old root-level files (superseded by src/)
+/core.jl
+/helpers.jl
+/lc-cqm.jl
+/parameters.jl
+/GellMann.jl
+/writers.jl
+/sivers.ipynb
+
+# Output and data files
+output*
+*.csv
+*.log
+*.pdf
+
+# Jupyter notebooks (except those in notebooks/)
+/*.ipynb
+
+# Build artifacts
+Manifest.toml
+.vscode/
+
+# Submission scripts and queue files
+submit*
+queue*
+documenter.jl
+
+# Old directories
+/src_old/
+/build/
+/docs/
+/exp_wf/
+/pow_wf/
+/old/

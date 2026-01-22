@@ -1,4 +1,4 @@
-module LC_CQM
+module LightConeQM
 
 # Contains wavefunction related code for the 
 # light-cone constituent quark model (LC-CQM)
@@ -6,25 +6,24 @@ module LC_CQM
 # see also references [11-18] therein.
 
 # Parameters are defined in parameters.jl
-# Helpers are defined in helpers.jl
+# Helpers are defined in Helpers.jl
 
 # ======================
 # Imports
 # ======================
 
-BasePath = @__DIR__
-HelpersPath = joinpath(BasePath, "helpers.jl")
-ParametersPath = joinpath(BasePath, "parameters.jl")
+const BASE_PATH = @__DIR__
+const HELPERS_PATH = joinpath(BASE_PATH, "Helpers.jl")
+const PARAMETERS_PATH = joinpath(BASE_PATH, "parameters.jl")
 
 # Integration
 using Cuba
 
 # Helpers, coordinate transformations, etc.
-include(HelpersPath)
+include(HELPERS_PATH)
 import .Helpers as hp
-# Parameters and SU(Nc) algebra set in parameters.jl
-include(ParametersPath)
-import .Parameters: params
+# Parameters and SU(NC) algebra set in parameters.jl
+include(PARAMETERS_PATH)
 
 # ======================
 # Exports
@@ -94,11 +93,11 @@ function spin_wavefunction(s0::Integer,
                            x1::Real, x2::Real, x3::Real,
                            k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
     # Parameters
-    mq = params.mq
     if !all(s -> s == 1 || s == -1, (s0,s1,s2,s3))
         error("Invalid spin configuration:  ($(s0), $(s1), $(s2), $(s3)). Each value must be +1 or -1.")
     end
     k12, k22, k32 = sum(k1.^2), sum(k2.^2), sum(k3.^2)
+    mq = MQ
     mq2 = mq^2
     m02 = (k12 + mq2)/x1 + (k22 + mq2)/x2 + (k32 + mq2)/x3
     m0 = sqrt(m02)
@@ -136,19 +135,14 @@ Notes
 function momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
                                      k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
     # Parameters
-    mq = params.mq
-    β = params.β
-
-    mq2 = mq^2
+    mq2 = MQ^2
     m02 = (sum(k1.^2) + mq2) / x1 + (sum(k2.^2) + mq2) / x2 + (sum(k3.^2) + mq2) / x3
-    wf_type = params.wf_type
-    if wf_type == :pow
-        p = params.p
-        ms_wf = (1 + m02 / β^2)^(-p)
-    elseif wf_type == :exp
-        ms_wf = exp(-m02 / (2 * β^2))
+    if WF_TYPE == :pow
+        ms_wf = (1 + m02 / BETA^2)^(-P)
+    elseif WF_TYPE == :exp
+        ms_wf = exp(-m02 / (2 * BETA^2))
     else
-        error("Invalid wavefunction type: $wf_type. Must be either :exp or :pow.")
+        error("Invalid wavefunction type: $WF_TYPE. Must be either :exp or :pow.")
     end
     return ms_wf
 end
@@ -245,7 +239,7 @@ end
 Normalize the baryon wave function with parameters defined in parameters.jl
 
 Returns
-- `norm::Float64`: normalization factor (to be set in parameters.jl afterwards)
+- `NORM::Float64`: normalization factor (to be set in parameters.jl afterwards)
 - `err::Vector{Float64}`: [err_re, err_im] error estimates
 
 Notes

@@ -15,8 +15,8 @@ using SharedArrays
 using Dates
 
 # Load the module locally first
-@everywhere const CorePath = joinpath(@__DIR__,"core.jl")
-include(CorePath)
+@everywhere const SiversPath = joinpath(dirname(@__DIR__), "src", "Sivers.jl")
+include(SiversPath)
 using .Sivers
 
 # Make it available to all workers
@@ -27,7 +27,7 @@ flush(stdout)
 @everywhere begin
     # Import module if not already imported
     if !isdefined(Main, :Sivers)
-        include(CorePath)
+        include(SiversPath)
         using .Sivers
     end
     using SharedArrays
@@ -532,17 +532,17 @@ flush(stdout)
 # write_cubic_color_corellator_to_csv(1, 1, 10.01, 30.0, 200, 0, 0; solver=:vegas) 
 # write_cubic_color_corellator_to_csv(1, -1, 1e-4, 10.001, 100, 0, 0; solver=:vegas)
 
-# write_odderon_distribution_r_to_csv(0.01, 1, 36; μ=0, solver=:vegas,spacing=:log)
-# write_odderon_distribution_r_to_csv(1.01, 4, 36; μ=0, solver=:vegas)
-# write_odderon_distribution_r_to_csv(4.01, 7, 36; μ=0, solver=:vegas)
-# write_odderon_distribution_r_to_csv(7.01, 10, 36; μ=0, solver=:vegas)
-# write_odderon_distribution_r_to_csv(10.01, 13, 36; μ=0, solver=:vegas)
-# write_odderon_distribution_r_to_csv(13.01, 16, 36; μ=0, solver=:vegas)
-# write_odderon_distribution_r_to_csv(16.01, 19, 36; μ=0, solver=:vegas)
-# write_odderon_distribution_r_to_csv(19.01, 20, 10; μ=0, solver=:vegas)
+write_odderon_distribution_r_to_csv(0.01, 1, 36; μ=0, solver=:vegas,spacing=:log) # <--- Currently running writers.log
+write_odderon_distribution_r_to_csv(1.01, 4, 36; μ=0, solver=:vegas)
+write_odderon_distribution_r_to_csv(4.01, 7, 36; μ=0, solver=:vegas)
+write_odderon_distribution_r_to_csv(7.01, 10, 36; μ=0, solver=:vegas)
+write_odderon_distribution_r_to_csv(10.01, 13, 36; μ=0, solver=:vegas)
+write_odderon_distribution_r_to_csv(13.01, 16, 36; μ=0, solver=:vegas)
+write_odderon_distribution_r_to_csv(16.01, 19, 36; μ=0, solver=:vegas)
+write_odderon_distribution_r_to_csv(19.01, 20, 10; μ=0, solver=:vegas)
 
-write_odderon_distribution_to_csv(1e-5, 0.9e-2, 36 ; μ=0, solver=:vegas) # <--- Currently running writers.log
-write_odderon_distribution_to_csv(1e-2, 2, 200 ; μ=0, solver=:vegas)
+# write_odderon_distribution_to_csv(1e-5, 0.9e-2, 36 ; μ=0, solver=:vegas) 
+# write_odderon_distribution_to_csv(1e-2, 2, 200 ; μ=0, solver=:vegas)
 
 # write_ft_cubic_color_corellator_to_csv(1,1, 1e-4, 3.001, 30; solver=:vegas)
 # write_ft_cubic_color_corellator_to_csv(1,-1, 1e-4, 3.001, 30; solver=:vegas)

@@ -1,7 +1,36 @@
+"""
+    Sivers
+
+Julia package for computing the gluon Sivers function and related form factors 
+in a light-cone constituent quark model.
+
+## Main exports
+- `f1_form_factor`, `f2_form_factor`: electromagnetic form factors
+- `cubic_color_correlator`: three-gluon correlator
+- `odderon_distribution`, `odderon_distribution_r`: odderon distributions
+- `gluon_sivers`: gluon Sivers function
+- `normalize_wavefunction`: baryon wavefunction normalization
+
+## Quick start
+```julia
+using Sivers
+
+# Compute gluon Sivers at k=0.5 GeV
+res, err, prob, neval, fail, nregions = gluon_sivers(0.5; μ=0.0, solver=:vegas)
+```
+
+## Configuration
+Model parameters (masses, wavefunction type, normalizations) are defined in `src/parameters.jl`.
+Adjust WF_TYPE, MQ, BETA, NORM, etc. as needed.
+
+## Solvers
+Integration backends are selected via symbols: `:cuhre`, `:vegas`, `:suave`, `:divonne`
+"""
 module Sivers
 # Main module for computing the gluon Sivers function
 # Parameters are defined in parameters.jl
-# Helpers are defined in helpers.jl
+# Helpers are defined in Helpers.jl
+# Light-cone wavefunction module in LightConeQM.jl
 
 # ======================
 # Imports
@@ -11,23 +40,22 @@ using Cuba
 # Bessel functions
 using SpecialFunctions: besselj0, besselj1
 
-const BasePath = @__DIR__
-const ParametersPath = joinpath(BasePath,"parameters.jl")
-const HelpersPath = joinpath(BasePath,"helpers.jl")
-const LCQMPath = joinpath(BasePath,"lc-cqm.jl")
+const BASE_PATH = @__DIR__
+const PARAMETERS_PATH = joinpath(BASE_PATH, "parameters.jl")
+const HELPERS_PATH = joinpath(BASE_PATH, "Helpers.jl")
+const LCQM_PATH = joinpath(BASE_PATH, "LightConeQM.jl")
 
 # Parameters handled separately
-include(ParametersPath)
-using .Parameters: params
+include(PARAMETERS_PATH)
 
 # Light-cone constituent quark model wavefunctions
-include(LCQMPath)
-import .LC_CQM as wfs
+include(LCQM_PATH)
+import .LightConeQM as wfs
 # Load into namespace for export
 normalize_wavefunction = wfs.normalize_wavefunction
 
 # Helpers, coordinate transformations, etc.
-include(HelpersPath)
+include(HELPERS_PATH)
 import .Helpers as hp
 
 # ======================
@@ -47,11 +75,8 @@ export  normalize_wavefunction,
 # Constants
 # ======================
 
-# Parameters and SU(Nc) algebra set in parameters.jl
-const αs = params.αs ;
-const Nc = params.Nc ;
-const mN = params.mN ;
-const dabc2 = (Nc^2 - 4) * (Nc^2 - 1) / Nc ;
+# Parameters and SU(NC) algebra set in parameters.jl
+const dabc2 = (NC^2 - 4) * (NC^2 - 1) / NC ;
 
 # ======================
 # Form Factors
@@ -75,7 +100,7 @@ Returns
 - `nregions::Int32`: Number of subregions used in the integration
 
 Notes
-- `norm` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
+- `NORM` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
 """
@@ -115,8 +140,8 @@ function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
     # Call cuhre with ncomp=2 to track real and imaginary parts separately
     integral, err, prob, neval, fail, nregions = cuhre(integrand, 6, 2; maxevals=10_000_000)
     # Apply prefactors to integration results
-    norm = params.norm
-    prf = 3 / (4π)^2 / (2π)^4 * norm^2
+    wf_norm = NORM
+    prf = 3 / (4π)^2 / (2π)^4 * wf_norm^2
     integral .*= prf
     err .*= prf
     return integral, err, prob, neval, fail, nregions
@@ -139,7 +164,7 @@ Returns
 - `nregions::Int32`: Number of subregions used in the integration
 
 Notes
-- `norm` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
+- `NORM` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
 """
@@ -165,7 +190,7 @@ Returns
 - `nregions::Int32`: Number of subregions used in the integration
 
 Notes
-- `norm` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
+- `NORM` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
 """
@@ -178,11 +203,11 @@ function f2_form_factor(Δ::Vector{<:Real})
 
     # Calculate real and imaginary parts separately
     # fdu and fud are arrays with [re, im] parts
-    prf = mN / Δ2
-    result_re = mN^2 / Δ2 * (ΔL / mN * fdu[1] - ΔR / mN * fud[1])
-    result_im = mN^2 / Δ2 * (ΔL / mN * fdu[2] - ΔR / mN * fud[2])
-    err_re = mN / sqrt(Δ2) * sqrt(err_du[1]^2 + err_ud[1]^2)
-    err_im = mN / sqrt(Δ2) * sqrt(err_du[2]^2 + err_ud[2]^2)
+    prf = M_N / Δ2
+    result_re = M_N^2 / Δ2 * (ΔL / M_N * fdu[1] - ΔR / M_N * fud[1])
+    result_im = M_N^2 / Δ2 * (ΔL / M_N * fdu[2] - ΔR / M_N * fud[2])
+    err_re = M_N / sqrt(Δ2) * sqrt(err_du[1]^2 + err_ud[1]^2)
+    err_im = M_N / sqrt(Δ2) * sqrt(err_du[2]^2 + err_ud[2]^2)
     
     return [result_re, result_im], [err_re, err_im], prob, neval, fail, nregions
 end
@@ -344,8 +369,8 @@ function integrate_cubic_color_correlator(s01::Integer,s02::Integer,
     end
     integral, err, prob, neval, fail, nregions = sol(integrand, 6, 2; rtol=9e-3, maxevals=10_000_000)
     # Prefactors 
-    norm = params.norm
-    prf = norm^2
+    wf_norm = NORM
+    prf = wf_norm^2
     # π factors from integration:
     # Deltas have (2π)^2 * 4π in front. 
     # Every integration over k gives 1 / (2π)^2 -> 1 / (2π)^(2 * 3)
@@ -422,8 +447,8 @@ function ft_cubic_color_correlator(s01::Integer,s02::Integer,
     end
     integral, err, prob, neval, fail, nregions = sol(integrand, 7, 2; rtol=9e-3, maxevals=100_000_000)
     # Prefactors 
-    norm = params.norm
-    prf = norm^2
+    wf_norm = NORM
+    prf = wf_norm^2
     # π factors from integration:
     # Deltas have (2π)^2 * 4π in front. 
     # Every integration over k gives 1 / (2π)^2 -> 1 / (2π)^(2 * 3)
@@ -460,7 +485,7 @@ Notes
 - Currently only valid for Δ = [0,0], corresponds to OΛΛ'(k,Δ) in the draft
 - Factor 1/k^2 is omitted here and added later in the Sivers function definition
 - Momenta must be in cartesian coordinates
-- `norm` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
+- `NORM` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
 - Result is generally complex; for k_y = 0 it is real
 - We enforce the symmetry in the k integration to get a simpler integrand
 - Factor g^6 = 1
@@ -541,9 +566,9 @@ function odderon_distribution(s01::Integer,s02::Integer,
     end
     integral, err, prob, neval, fail, nregions = sol(integrand, 8, 2; rtol=9e-3, maxevals=10_000_000)
     # Prefactors 
-    norm = params.norm
+    wf_norm = NORM
     # Factor of g^6 = 1, for simplicity, treated later on
-    prf = - dabc2 / Nc / 32 * norm^2
+    prf = - dabc2 / NC / 32 * wf_norm^2
     # π factors from integration:
     # Deltas have (2π)^2 * 4π in front. 
     # Every integration over k gives 1 / (2π)^2 -> 1 / (2π)^(2 * 3)
@@ -580,7 +605,7 @@ Returns
 
 Notes
 - vectors must be in cartesian coordinates
-- `norm` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
+- `NORM` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
 - Result is generally complex
 - Factor ig^6 = 1
 """
@@ -639,9 +664,9 @@ function odderon_distribution_r(s01::Integer,s02::Integer,
     end
     integral, err, prob, neval, fail, nregions = sol(integrand, 10, 2; rtol=9e-3, maxevals=70_000_000)
     # Prefactors 
-    norm = params.norm
+    wf_norm = NORM
     # Factor of ig^6 = 1, for simplicity, treated later on
-    prf = - dabc2 / Nc / 16 * norm^2
+    prf = - dabc2 / NC / 16 * wf_norm^2
     # π factors from integration:
     # Deltas have (2π)^2 * 4π in front. 
     # Every integration over k gives 1 / (2π)^2 -> 1 / (2π)^(2 * 3)
@@ -687,7 +712,7 @@ function gluon_sivers(k::Real; μ::Real=0.00, solver::Symbol=:vegas)
 
     odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, Δ, [k,0]; μ=μ, solver=solver)
     # 1 / k^2 partially cancels with definition of Sivers function
-    prf = 8 * mN * Nc / π * αs^2 / k
+    prf = 8 * M_N * NC / π * ALPHA_S^2 / k
     result = prf * odderon_dist
     err .*= abs(prf)
     return result, err, prob, neval, fail, nregions
