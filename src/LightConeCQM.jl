@@ -286,4 +286,4 @@ function normalize_wavefunction()
 end
 
 # ======================
-end # module LC_CQM
+end # module LightConeCQM

@@ -133,5 +133,5 @@ function fabc(a::Integer, b::Integer, c::Integer; n::Integer=3)
     return f_symbols[a,b,c]
 end
 
-# End module
-end
+# ======================
+end # module GellMann

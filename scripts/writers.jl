@@ -1,24 +1,23 @@
 # This code performs parallel computation of the electromagnetic form factors,
 # odderon distribution and gluon Sivers function
 # over a specified range of Δ and k values.
-# The results are stored in CSV files.
+# The results are stored in CSV files in the ../data folder.
 # Just uncomment the function calls at the bottom to use.
-# Run for example over command line via: nohup julia -p nworkers writers.jl > writers.log 2>&1 &
+# Run for example over command line from project root via:
+# nohup JULIA_PROJECT=@. julia -p nworkers scripts/writers.jl > writers.log 2>&1 &
 # Where nworkers is the number of parallel workers to use.
 
 # ======================
 # Environment Setup
 # ======================
 
+using Pkg
+# Activate the Sivers project environment once on the main process
+Pkg.activate(joinpath(@__DIR__, ".."))
+Pkg.instantiate()
+
 using Distributed
 using Dates
-
-# Activate the Sivers project environment on all workers
-@everywhere begin
-    using Pkg
-    Pkg.activate(joinpath(@__DIR__, ".."))
-end
-
 using SharedArrays
 
 # Load Sivers package on all workers

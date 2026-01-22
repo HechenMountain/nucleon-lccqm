@@ -239,4 +239,4 @@ function cartesian_to_polar(vec::Vector{<:Real})
 end
 
 # ======================
-end # module
+end # module Helpers

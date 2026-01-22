@@ -48,9 +48,7 @@ using .Parameters
 # Light-cone constituent quark model wavefunctions
 include(joinpath(@__DIR__, "LightConeCQM.jl"))
 import .LightConeCQM as wfs
-const normalize_wavefunction = wfs.normalize_wavefunction
-const compute_wavefunction = wfs.compute_wavefunction
-const spin_sum = wfs.spin_sum
+const normalize_wavefunction = wfs.normalize_wavefunction # Bring into namespace for export
 
 # Helpers, coordinate transformations, etc.
 include(joinpath(@__DIR__, "Helpers.jl"))
@@ -653,12 +651,14 @@ function odderon_distribution_r(s01::Integer,s02::Integer,
         # Simplified integrand for spin-flip
         total = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, k1, k2, k3)
         den = q12 * q22 * q32
-        # arg1, arg2 = .5 * (2q1 - Δ), .5 * Δ
-        # arg1, arg2 = r'arg1, r'arg2 
-        # trig1, trig2 = sin(arg1),  1/3 * sin(arg2)
-        # trig = trig1 + trig2
-        trig1, trig2, trig3 = sin(.5 * q1'r), sin(.5 * q2'r), sin(.5 * q3'r)
-        trig = 4 / 3 * trig1 * trig2 * trig3
+        if Δ == [0,0]
+            trig1, trig2, trig3 = sin(.5 * q1'r), sin(.5 * q2'r), sin(.5 * q3'r)
+            trig = 4 / 3 * trig1 * trig2 * trig3
+        else
+            trig1, trig2, trig3, trig4 = sin(.5 * Δ'r), sin(.5 * (2q1 - Δ)'r), sin(.5 * (2q2 - Δ)'r), sin(.5 * (2q3 - Δ)'r)
+            trig = trig1 + trig2 + trig3 + trig4
+            trig *= 1 / 3
+        end
         total *= trig * d10x / den
 
         f[1] = real(total)
@@ -682,7 +682,7 @@ function odderon_distribution_r(s01::Integer,s02::Integer,
 end
 
 """
-    gluon_sivers(k::Real; μ::Real=0.00, solver::Symbol=:vegas)
+    gluon_sivers(k::Vector{<:Real}; μ::Real=0.00, solver::Symbol=:vegas)
 
 Compute the gluon Sivers function for momentum transfer k.
 
@@ -705,20 +705,21 @@ Notes
   and sum them similar to `f2_form_factor`
 - Result is real but we keep the imaginary part for consistency
 """
-function gluon_sivers(k::Real; μ::Real=0.00, solver::Symbol=:vegas)
+function gluon_sivers(k::Vector{<:Real}; μ::Real=0.00, solver::Symbol=:vegas)
     # Spin flip
     s01 = 1
     s02 = -1
     # Zero momentum transfer
     Δ = [0,0]
 
-    odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, Δ, [k,0]; μ=μ, solver=solver)
+    odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, Δ, k; μ=μ, solver=solver)
     # 1 / k^2 partially cancels with definition of Sivers function
-    prf = 8 * M_N * NC / π * ALPHA_S^2 / k
+    kabs = sqrt(sum(k.^2))
+    prf = 8 * M_N * NC / π * ALPHA_S^2 / kabs
     result = prf * odderon_dist
     err .*= abs(prf)
     return result, err, prob, neval, fail, nregions
 end
 
 # ======================
-end # module
+end # module Sivers

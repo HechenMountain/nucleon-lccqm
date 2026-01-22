@@ -10,7 +10,7 @@ We parametrize the light-cone baryon wavefunction in a truncated three-quark Foc
 From the Julia REPL:
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/yourusername/Sivers.jl")
+Pkg.add(url="https://github.com/HechenMountain/Sivers.jl")
 ```
 
 Or for development:
@@ -19,18 +19,18 @@ Pkg.develop(path="/path/to/Sivers.jl")
 ```
 
 ## Features
+- Multiple wavefunction parametrizations selectable in `src/Parameters.jl` (`WF_TYPE = :pow` or `:exp`)
+- Parallelized data generation for form factors, odderon distributions, and the Sivers function using writers.jl script
 - Symbol-based configuration for solvers (`:cuhre`, `:vegas`, `:suave`, `:divonne`)
 - Linear/log spacing controls for writers and sampling utilities (`spacing=:lin` or `:log`)
-- Multiple wavefunction parametrizations selectable in `src/Parameters.jl` (`WF_TYPE = :pow` or `:exp`)
-- Parallel CSV writers for form factors, odderon distributions, and the Sivers function
 
 ## Quick start
 
 ```julia
 using Sivers
 
-# Example: gluon Sivers at k=0.5 GeV with vegas
-res, err, prob, neval, fail, nregions = gluon_sivers(0.5; μ=0.0, solver=:vegas)
+# Example: gluon Sivers at [kx,ky]=[0.5,0] GeV with vegas
+res, err, prob, neval, fail, nregions = gluon_sivers([0.5,0]; μ=0.0, solver=:vegas)
 
 # Form factors
 f1, err_f1, prob, neval, fail, nregions = f1_form_factor([0.1, 0.0])
@@ -41,7 +41,7 @@ norm, err, prob, neval, fail, nregions = normalize_wavefunction()
 ```
 
 ## Batch runs
-Use the writer script with parallel workers:
+Use the writer script with 4 parallel workers:
 ```sh
 julia -p 4 scripts/writers.jl
 ```
