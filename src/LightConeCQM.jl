@@ -1,29 +1,24 @@
-module LightConeQM
+module LightConeCQM
 
 # Contains wavefunction related code for the 
 # light-cone constituent quark model (LC-CQM)
 # of https://arxiv.org/pdf/0806.2298, 
 # see also references [11-18] therein.
 
-# Parameters are defined in parameters.jl
-# Helpers are defined in Helpers.jl
-
 # ======================
 # Imports
 # ======================
 
-const BASE_PATH = @__DIR__
-const HELPERS_PATH = joinpath(BASE_PATH, "Helpers.jl")
-const PARAMETERS_PATH = joinpath(BASE_PATH, "parameters.jl")
-
 # Integration
 using Cuba
 
+# Include Parameters submodule
+include(joinpath(@__DIR__, "Parameters.jl"))
+using .Parameters
+
 # Helpers, coordinate transformations, etc.
-include(HELPERS_PATH)
+include(joinpath(@__DIR__, "Helpers.jl"))
 import .Helpers as hp
-# Parameters and SU(NC) algebra set in parameters.jl
-include(PARAMETERS_PATH)
 
 # ======================
 # Exports
@@ -130,7 +125,7 @@ Returns
 
 Notes
 - Momenta should be cartesian
-- Wavefunction type (`:exp` or `:pow`) is set in parameters.jl
+- Wavefunction type (`:exp` or `:pow`) is set in Parameters.jl
 """
 function momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
                                      k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
@@ -236,10 +231,10 @@ end
 """
     normalize_wavefunction()
 
-Normalize the baryon wave function with parameters defined in parameters.jl
+Normalize the baryon wave function with parameters defined in Parameters.jl
 
 Returns
-- `NORM::Float64`: normalization factor (to be set in parameters.jl afterwards)
+- `NORM::Float64`: normalization factor (to be set in Parameters.jl afterwards)
 - `err::Vector{Float64}`: [err_re, err_im] error estimates
 
 Notes

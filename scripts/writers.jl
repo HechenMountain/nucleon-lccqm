@@ -7,33 +7,52 @@
 # Where nworkers is the number of parallel workers to use.
 
 # ======================
-# Imports
+# Environment Setup
 # ======================
 
 using Distributed
-using SharedArrays
 using Dates
 
-# Load the module locally first
-@everywhere const SiversPath = joinpath(dirname(@__DIR__), "src", "Sivers.jl")
-include(SiversPath)
-using .Sivers
+# Activate the Sivers project environment on all workers
+@everywhere begin
+    using Pkg
+    Pkg.activate(joinpath(@__DIR__, ".."))
+end
 
-# Make it available to all workers
-println(Dates.now(), " Finished module import at top level.")
+using SharedArrays
+
+# Load Sivers package on all workers
 println(Dates.now(), " Starting module import for $(nworkers()) workers...")
 flush(stdout)
 
 @everywhere begin
-    # Import module if not already imported
-    if !isdefined(Main, :Sivers)
-        include(SiversPath)
-        using .Sivers
-    end
+    using Sivers
     using SharedArrays
 end
 
 println(Dates.now(), " Finished module import.")
+
+# ======================
+# Data Directory Setup
+# ======================
+
+"""
+    data_dir(subdir::String="csv")
+
+Get the path to the data output directory.
+Creates the directory if it doesn't exist.
+
+Arguments
+- `subdir`: subdirectory name ("csv" or "plots")
+
+Returns
+- Absolute path to the data subdirectory
+"""
+function data_dir(subdir::String="csv")
+    dir = joinpath(dirname(@__DIR__), "data", subdir)
+    isdir(dir) || mkpath(dir)
+    return dir
+end
 flush(stdout)
 
 # ======================
@@ -148,7 +167,7 @@ function write_gluon_sivers_to_csv(kmin::Real, kmax::Real, n::Integer;
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = "output_gluon_sivers_$(solver)_$(μ)_$(kmin)_$(kmax).csv"
+    filename = joinpath(data_dir("csv"), "output_gluon_sivers_$(solver)_$(μ)_$(kmin)_$(kmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -200,7 +219,7 @@ function write_2d_odderon_distribution_to_csv(s01::Integer,s02::Integer,kmin::Re
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = "output_2d_$(s01)_$(s02)_$(solver)_$(μ)_$(kmin)_$(kmax).csv"
+    filename = joinpath(data_dir("csv"), "output_2d_$(s01)_$(s02)_$(solver)_$(μ)_$(kmin)_$(kmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_2d_cuba_to_file(filename,k_list,results)
 end
@@ -242,7 +261,7 @@ function write_odderon_distribution_to_csv(kmin::Real, kmax::Real, n::Integer;
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = "output_$(solver)_$(μ)_$(kmin)_$(kmax).csv"
+    filename = joinpath(data_dir("csv"), "output_$(solver)_$(μ)_$(kmin)_$(kmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -283,7 +302,7 @@ function write_odderon_distribution_r_to_csv(rmin::Real, rmax::Real, n::Integer;
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = "output_r_$(solver)_$(μ)_$(rmin)_$(rmax).csv"
+    filename = joinpath(data_dir("csv"), "output_r_$(solver)_$(μ)_$(rmin)_$(rmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -337,7 +356,7 @@ function write_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = "output_ccc_s01_$(s01)_s02_$(s02)_$(solver)_q12_$(q12)_q23_$(q23)_$(Δmin)_$(Δmax).csv"
+    filename = joinpath(data_dir("csv"), "output_ccc_s01_$(s01)_s02_$(s02)_$(solver)_q12_$(q12)_q23_$(q23)_$(Δmin)_$(Δmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -381,7 +400,7 @@ function write_ft_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = "output_ft_ccc_s01_$(s01)_s02_$(s02)_$(solver)_$(rmin)_$(rmax).csv"
+    filename = joinpath(data_dir("csv"), "output_ft_ccc_s01_$(s01)_s02_$(s02)_$(solver)_$(rmin)_$(rmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -419,7 +438,7 @@ function write_f1_form_factor_to_csv(Δmin::Real=0.0, Δmax::Real=3.3, n::Intege
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = "output_f1.csv"
+    filename = joinpath(data_dir("csv"), "output_f1.csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -457,7 +476,7 @@ function write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δmax::Real=3.3, n::Integ
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = "output_f2.csv"
+    filename = joinpath(data_dir("csv"), "output_f2.csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -495,7 +514,7 @@ function write_f_form_factor_to_csv(s01::Integer,s02::Integer,Δmin::Real=1e-6, 
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = "output_f_$(s01)_$(s02).csv"
+    filename = joinpath(data_dir("csv"), "output_f_$(s01)_$(s02).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end

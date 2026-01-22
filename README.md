@@ -21,7 +21,7 @@ Pkg.develop(path="/path/to/Sivers.jl")
 ## Features
 - Symbol-based configuration for solvers (`:cuhre`, `:vegas`, `:suave`, `:divonne`)
 - Linear/log spacing controls for writers and sampling utilities (`spacing=:lin` or `:log`)
-- Multiple wavefunction parametrizations selectable in `src/parameters.jl` (`WF_TYPE = :pow` or `:exp`)
+- Multiple wavefunction parametrizations selectable in `src/Parameters.jl` (`WF_TYPE = :pow` or `:exp`)
 - Parallel CSV writers for form factors, odderon distributions, and the Sivers function
 
 ## Quick start
@@ -51,7 +51,7 @@ Uncomment or edit the desired `write_*` calls near the end of `scripts/writers.j
 See `notebooks/sivers.ipynb` for interactive examples.
 
 ## Configuration
-Adjust model parameters in `src/parameters.jl`:
+Adjust model parameters in `src/Parameters.jl`:
 - `WF_TYPE`: wavefunction type (`:pow` or `:exp`)
 - `MQ`: constituent quark mass
 - `BETA`: baryon wavefunction width parameter
@@ -67,9 +67,9 @@ Sivers.jl/
 ├── src/
 │   ├── Sivers.jl          # Main module (entry point)
 │   ├── core.jl            # Core implementation
-│   ├── parameters.jl      # Physical parameters
+│   ├── Parameters.jl      # Physical parameters
 │   ├── Helpers.jl         # Helper functions & coordinate transforms
-│   ├── LightConeQM.jl     # Light-cone wavefunction module
+│   ├── LightConeCQM.jl    # Light-cone wavefunction module
 │   └── GellMann.jl        # SU(N) generators
 ├── scripts/
 │   └── writers.jl         # Parallel batch computation scripts

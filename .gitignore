@@ -2,7 +2,7 @@
 /core.jl
 /helpers.jl
 /lc-cqm.jl
-/parameters.jl
+/Parameters.jl
 /GellMann.jl
 /writers.jl
 /sivers.ipynb
@@ -13,8 +13,14 @@ output*
 *.log
 *.pdf
 
+# Data directory (outputs stored here)
+/data/*
+
 # Jupyter notebooks (except those in notebooks/)
 /*.ipynb
+# Temporary notebooks
+/notebooks/charm.ipynb
+/notebooks/plots.ipynb
 
 # Build artifacts
 Manifest.toml

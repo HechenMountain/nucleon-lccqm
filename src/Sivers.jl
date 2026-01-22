@@ -20,17 +20,18 @@ res, err, prob, neval, fail, nregions = gluon_sivers(0.5; μ=0.0, solver=:vegas)
 ```
 
 ## Configuration
-Model parameters (masses, wavefunction type, normalizations) are defined in `src/parameters.jl`.
+Model parameters (masses, wavefunction type, normalizations) are defined in `src/Parameters.jl`.
 Adjust WF_TYPE, MQ, BETA, NORM, etc. as needed.
 
 ## Solvers
 Integration backends are selected via symbols: `:cuhre`, `:vegas`, `:suave`, `:divonne`
+Recommended solver is :vegas for integrals with dimension ≥ 6, otherwise :cuhre
 """
 module Sivers
 # Main module for computing the gluon Sivers function
-# Parameters are defined in parameters.jl
+# Parameters are defined in Parameters.jl module
 # Helpers are defined in Helpers.jl
-# Light-cone wavefunction module in LightConeQM.jl
+# Light-cone wavefunction module in LightConeCQM.jl
 
 # ======================
 # Imports
@@ -40,28 +41,29 @@ using Cuba
 # Bessel functions
 using SpecialFunctions: besselj0, besselj1
 
-const BASE_PATH = @__DIR__
-const PARAMETERS_PATH = joinpath(BASE_PATH, "parameters.jl")
-const HELPERS_PATH = joinpath(BASE_PATH, "Helpers.jl")
-const LCQM_PATH = joinpath(BASE_PATH, "LightConeQM.jl")
-
-# Parameters handled separately
-include(PARAMETERS_PATH)
+# Include and use Parameters submodule
+include(joinpath(@__DIR__, "Parameters.jl"))
+using .Parameters
 
 # Light-cone constituent quark model wavefunctions
-include(LCQM_PATH)
-import .LightConeQM as wfs
-# Load into namespace for export
-normalize_wavefunction = wfs.normalize_wavefunction
+include(joinpath(@__DIR__, "LightConeCQM.jl"))
+import .LightConeCQM as wfs
+const normalize_wavefunction = wfs.normalize_wavefunction
+const compute_wavefunction = wfs.compute_wavefunction
+const spin_sum = wfs.spin_sum
 
 # Helpers, coordinate transformations, etc.
-include(HELPERS_PATH)
+include(joinpath(@__DIR__, "Helpers.jl"))
 import .Helpers as hp
 
 # ======================
 # Exports
 # ======================
 
+# Re-export parameters for convenient access
+export WF_TYPE, P, MQ, BETA, NORM, NC, ALPHA_S, M_N
+
+# Export functions
 export  normalize_wavefunction,
         f1_form_factor,
         f2_form_factor,
@@ -75,7 +77,7 @@ export  normalize_wavefunction,
 # Constants
 # ======================
 
-# Parameters and SU(NC) algebra set in parameters.jl
+# Parameters and SU(NC) algebra set in Parameters.jl
 const dabc2 = (NC^2 - 4) * (NC^2 - 1) / NC ;
 
 # ======================
@@ -100,7 +102,7 @@ Returns
 - `nregions::Int32`: Number of subregions used in the integration
 
 Notes
-- `NORM` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
+- `NORM` is set in `Parameters.jl` and can be obtained from `normalize_wavefunction()`
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
 """
@@ -164,7 +166,7 @@ Returns
 - `nregions::Int32`: Number of subregions used in the integration
 
 Notes
-- `NORM` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
+- `NORM` is set in `Parameters.jl` and can be obtained from `normalize_wavefunction()`
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
 """
@@ -190,7 +192,7 @@ Returns
 - `nregions::Int32`: Number of subregions used in the integration
 
 Notes
-- `NORM` is set in `parameters.jl` and can be obtained from `normalize_wavefunction()`
+- `NORM` is set in `Parameters.jl` and can be obtained from `normalize_wavefunction()`
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
 """
@@ -485,7 +487,7 @@ Notes
 - Currently only valid for Δ = [0,0], corresponds to OΛΛ'(k,Δ) in the draft
 - Factor 1/k^2 is omitted here and added later in the Sivers function definition
 - Momenta must be in cartesian coordinates
-- `NORM` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
+- `NORM` is set in `Parameters.jl`, obtainable via `normalize_wavefunction()`
 - Result is generally complex; for k_y = 0 it is real
 - We enforce the symmetry in the k integration to get a simpler integrand
 - Factor g^6 = 1
@@ -605,7 +607,7 @@ Returns
 
 Notes
 - vectors must be in cartesian coordinates
-- `NORM` is set in `parameters.jl`, obtainable via `normalize_wavefunction()`
+- `NORM` is set in `Parameters.jl`, obtainable via `normalize_wavefunction()`
 - Result is generally complex
 - Factor ig^6 = 1
 """
