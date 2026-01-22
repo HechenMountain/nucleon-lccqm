@@ -6,7 +6,7 @@
 /GellMann.jl
 /writers.jl
 /sivers.ipynb
-
+.gitignore
 # Output and data files
 output*
 *.csv

@@ -1,4 +1,4 @@
-# Sivers.jl
+# GluonSiversLCCQM.jl
 
 Julia package for computing the gluon Sivers function and related form factors in a light-cone constituent quark model.
 
@@ -10,12 +10,12 @@ We parametrize the light-cone baryon wavefunction in a truncated three-quark Foc
 From the Julia REPL:
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/HechenMountain/Sivers.jl")
+Pkg.add(url="https://github.com/HechenMountain/gluon-sivers-lccqm")
 ```
 
 Or for development:
 ```julia
-Pkg.develop(path="/path/to/Sivers.jl")
+Pkg.develop(url="https://github.com/HechenMountain/gluon-sivers-lccqm")
 ```
 
 ## Features
@@ -27,7 +27,7 @@ Pkg.develop(path="/path/to/Sivers.jl")
 ## Quick start
 
 ```julia
-using Sivers
+using GluonSiversLCCQM
 
 # Example: gluon Sivers at [kx,ky]=[0.5,0] GeV with vegas
 res, err, prob, neval, fail, nregions = gluon_sivers([0.5,0]; μ=0.0, solver=:vegas)
@@ -62,10 +62,10 @@ Adjust model parameters in `src/Parameters.jl`:
 
 ## Project Structure
 ```
-Sivers.jl/
+gluon-sivers-lccqm/
 ├── Project.toml           # Package metadata & dependencies
 ├── src/
-│   ├── Sivers.jl          # Main module (entry point)
+│   ├── GluonSiversLCCQM.jl # Main module (entry point)
 │   ├── core.jl            # Core implementation
 │   ├── Parameters.jl      # Physical parameters
 │   ├── Helpers.jl         # Helper functions & coordinate transforms

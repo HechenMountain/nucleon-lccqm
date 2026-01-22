@@ -25,7 +25,7 @@ println(Dates.now(), " Starting module import for $(nworkers()) workers...")
 flush(stdout)
 
 @everywhere begin
-    using Sivers
+    using GluonSiversLCCQM
     using SharedArrays
 end
 

@@ -1,5 +1,5 @@
 """
-    Sivers
+    GluonSiversLCCQM
 
 Julia package for computing the gluon Sivers function and related form factors 
 in a light-cone constituent quark model.
@@ -13,7 +13,7 @@ in a light-cone constituent quark model.
 
 ## Quick start
 ```julia
-using Sivers
+using GluonSiversLCCQM
 
 # Compute gluon Sivers at k=0.5 GeV
 res, err, prob, neval, fail, nregions = gluon_sivers(0.5; μ=0.0, solver=:vegas)
@@ -27,7 +27,7 @@ Adjust WF_TYPE, MQ, BETA, NORM, etc. as needed.
 Integration backends are selected via symbols: `:cuhre`, `:vegas`, `:suave`, `:divonne`
 Recommended solver is :vegas for integrals with dimension ≥ 6, otherwise :cuhre
 """
-module Sivers
+module GluonSiversLCCQM
 # Main module for computing the gluon Sivers function
 # Parameters are defined in Parameters.jl module
 # Helpers are defined in Helpers.jl
@@ -722,4 +722,4 @@ function gluon_sivers(k::Vector{<:Real}; μ::Real=0.00, solver::Symbol=:vegas)
 end
 
 # ======================
-end # module Sivers
+end # module GluonSiversLCCQM
