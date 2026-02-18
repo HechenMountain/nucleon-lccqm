@@ -104,7 +104,7 @@ Notes
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
 """
-function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
+function f_form_factor(s01::Integer, s02::Integer, Δ::AbstractVector{<:Real})
     eu, ed = 2/3, -1/3
     charges = (eu,eu,ed)
     function integrand(x,f)
@@ -115,8 +115,8 @@ function f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
         r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
         
         # Reconstruct cartesian momenta from polar coordinates
-        k1 = hp.polar_to_cartesian([r1, ϕ1])
-        k2 = hp.polar_to_cartesian([r2, ϕ2])
+        k1 = hp.polar_to_cartesian(hp.vec2(r1, ϕ1))
+        k2 = hp.polar_to_cartesian(hp.vec2(r2, ϕ2))
         k3 = - (k1 + k2)  # Enforce transverse momentum conservation
 
         # Jacobian
@@ -168,7 +168,7 @@ Notes
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
 """
-function f1_form_factor(Δ::Vector{<:Real})
+function f1_form_factor(Δ::AbstractVector{<:Real})
     result, err, prob, neval, fail, nregions = f_form_factor(1, 1, Δ)
     return result, err, prob, neval, fail, nregions
 end
@@ -194,7 +194,7 @@ Notes
 - Spin sums are performed inside integrand, then `cuhre` is used once to integrate both real and imaginary parts
 - Momenta must be in cartesian coordinates
 """
-function f2_form_factor(Δ::Vector{<:Real})
+function f2_form_factor(Δ::AbstractVector{<:Real})
     ΔL, ΔR = complex(Δ[1], -Δ[2]) , complex(Δ[1], Δ[2]) 
     Δ2 = hp.sqnorm2(Δ)
     # Notation in notes reversed: Lambda', Lambda = s02, s01
@@ -237,9 +237,9 @@ Notes
 - Momenta must be in cartesian coordinates
 """
 function cubic_color_correlator(s01::Integer,s02::Integer,
-                                q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real},
+                                q1::AbstractVector{<:Real}, q2::AbstractVector{<:Real}, q3::AbstractVector{<:Real},
                                 x1::Real, x2::Real, x3::Real,
-                                k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                                k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
     function one_body_kin(i, j123, q1, q2, q3)
         # Momentum inflow [q1 + q2 + q3] at j123
         # i is k_prime (quark) index, j123 quark line with 
@@ -335,7 +335,7 @@ Notes
 - Momenta must be in cartesian coordinates
 """
 function integrate_cubic_color_correlator(s01::Integer,s02::Integer,
-                                          q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real};
+                                          q1::AbstractVector{<:Real}, q2::AbstractVector{<:Real}, q3::AbstractVector{<:Real};
                                           solver::Symbol=:vegas)
     sol = get(hp.SOLVERS, solver) do
         throw(ArgumentError("solver must be one of: :cuhre, :vegas, :divonne, :suave"))
@@ -352,8 +352,8 @@ function integrate_cubic_color_correlator(s01::Integer,s02::Integer,
         r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])    # k2
     
         # Reconstruct cartesian momenta from polar coordinates
-        k1 = hp.polar_to_cartesian([r1, ϕ1])
-        k2 = hp.polar_to_cartesian([r2, ϕ2])
+        k1 = hp.polar_to_cartesian(hp.vec2(r1, ϕ1))
+        k2 = hp.polar_to_cartesian(hp.vec2(r2, ϕ2))
         k3 = - (k1 + k2)  # Enforce transverse momentum conservation
         d4k = d2k1 * d2k2
 
@@ -419,14 +419,14 @@ function ft_cubic_color_correlator(s01::Integer,s02::Integer,
         r3, dΔ = x[1] / (1 - x[7]), 1 / (1 - x[7])^2 # Δ
     
         # Reconstruct cartesian momenta from polar coordinates
-        k1 = hp.polar_to_cartesian([r1, ϕ1])
-        k2 = hp.polar_to_cartesian([r2, ϕ2])
+        k1 = hp.polar_to_cartesian(hp.vec2(r1, ϕ1))
+        k2 = hp.polar_to_cartesian(hp.vec2(r2, ϕ2))
         k3 = - (k1 + k2)    # Enforce transverse momentum conservation
         d4k = d2k1 * d2k2
 
-        Δ = [r3, 0]
+        Δ = hp.vec2(r3, 0.0)
         # Assume q_12 = q_23 = 0 
-        q12, q23 = [0,0], [0,0]
+        q12, q23 = hp.vec2(0.0, 0.0), hp.vec2(0.0, 0.0)
         q1, q2, q3 = (2 * q12 + q23 - Δ) / 3, (- q12 + q23 - Δ) / 3, - (q12 + 2 * q23 + Δ) / 3
         # Jacobian
         d7x = d2x * d4k * dΔ   # 2 + 4 + 1 = 7d integral
@@ -490,9 +490,9 @@ Notes
 - Factor g^6 = 1
 """
 function odderon_distribution(s01::Integer,s02::Integer,
-                              Δ::Vector{<:Real}, k::Vector{<:Real};
+                              Δ::AbstractVector{<:Real}, k::AbstractVector{<:Real};
                               μ::Real=0.00,solver::Symbol=:vegas)
-    if !iszero(Δ)
+    if !all(iszero, Δ)
         throw(ArgumentError("Implementation currently only for vanishing Δ."))
     end
     
@@ -512,12 +512,12 @@ function odderon_distribution(s01::Integer,s02::Integer,
         r3, ϕ3, d2q2 = hp.cuba_to_polar(x[7:8])    # q2
         
         # Reconstruct cartesian momenta from polar coordinates
-        k1 = hp.polar_to_cartesian([r1, ϕ1])
-        k2 = hp.polar_to_cartesian([r2, ϕ2])
+        k1 = hp.polar_to_cartesian(hp.vec2(r1, ϕ1))
+        k2 = hp.polar_to_cartesian(hp.vec2(r2, ϕ2))
         k3 = - (k1 + k2)  # Enforce transverse momentum conservation
         d4k = d2k1 * d2k2
 
-        q2 = hp.polar_to_cartesian([r3, ϕ3])
+        q2 = hp.polar_to_cartesian(hp.vec2(r3, ϕ3))
         # Jacobian
         d8x = d2x * d4k * d2q2 # 2 + 4 + 2 = 8d integral
         μ2 = μ^2 # Regulator squared
@@ -532,7 +532,7 @@ function odderon_distribution(s01::Integer,s02::Integer,
                 total += s * ccc
             end
             # Regenerate initial q2
-            q2 = hp.polar_to_cartesian([r3, ϕ3])
+            q2 = hp.polar_to_cartesian(hp.vec2(r3, ϕ3))
             q3 = k + q2
             q22, q32 = hp.sqnorm2(q2), hp.sqnorm2(q3)
             # Add regulator
@@ -609,7 +609,7 @@ Notes
 - Factor ig^6 = 1
 """
 function odderon_distribution_r(s01::Integer,s02::Integer,
-                              Δ::Vector{<:Real}, r::Vector{<:Real};
+                              Δ::AbstractVector{<:Real}, r::AbstractVector{<:Real};
                               μ::Real=0.00,solver::Symbol=:vegas)
     sol = get(hp.SOLVERS, solver) do
         throw(ArgumentError("solver must be one of: :cuhre, :vegas, :divonne, :suave"))
@@ -628,13 +628,13 @@ function odderon_distribution_r(s01::Integer,s02::Integer,
         r4, ϕ4, d2q2 = hp.cuba_to_polar(x[9:10])   # q2
         
         # Reconstruct cartesian momenta from polar coordinates
-        k1 = hp.polar_to_cartesian([r1, ϕ1])
-        k2 = hp.polar_to_cartesian([r2, ϕ2])
+        k1 = hp.polar_to_cartesian(hp.vec2(r1, ϕ1))
+        k2 = hp.polar_to_cartesian(hp.vec2(r2, ϕ2))
         k3 = - (k1 + k2)  # Enforce transverse momentum conservation
         d4k = d2k1 * d2k2
 
-        q1 = hp.polar_to_cartesian([r3, ϕ3])
-        q2 = hp.polar_to_cartesian([r4, ϕ4])
+        q1 = hp.polar_to_cartesian(hp.vec2(r3, ϕ3))
+        q2 = hp.polar_to_cartesian(hp.vec2(r4, ϕ4))
         q3 = Δ - (q1 + q2)
         d4q = d2q1 * d2q2
 
@@ -647,7 +647,7 @@ function odderon_distribution_r(s01::Integer,s02::Integer,
         total = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, k1, k2, k3)
         den = q12 * q22 * q32
         # Simplified integrand in forward limit
-        if Δ == [0,0]
+        if all(iszero, Δ)
             trig1, trig2, trig3 = sin(.5 * q1'r), sin(.5 * q2'r), sin(.5 * q3'r)
             trig = 4 / 3 * trig1 * trig2 * trig3
         else
@@ -701,12 +701,12 @@ Notes
   and sum them similar to `f2_form_factor`
 - Result is real but we keep the imaginary part for consistency
 """
-function gluon_sivers(k::Vector{<:Real}; μ::Real=0.00, solver::Symbol=:vegas)
+function gluon_sivers(k::AbstractVector{<:Real}; μ::Real=0.00, solver::Symbol=:vegas)
     # Spin flip
     s01 = 1
     s02 = -1
     # Zero momentum transfer
-    Δ = [0,0]
+    Δ = hp.vec2(0.0, 0.0)
 
     odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, Δ, k; μ=μ, solver=solver)
     # 1 / k^2 partially cancels with definition of Sivers function

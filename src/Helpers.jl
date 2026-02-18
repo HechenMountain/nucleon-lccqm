@@ -2,6 +2,7 @@ module Helpers
 
 # Integration backends
 using Cuba
+using StaticArrays: SVector
 
 # ======================
 # Export
@@ -9,7 +10,8 @@ using Cuba
 
 export  δ,
         spin_index,
-    sqnorm2,
+        sqnorm2,
+        vec2,
         cuba_to_parton_x, 
         cuba_to_polar,
         cuba_to_hyperspherical,
@@ -44,6 +46,7 @@ Returns
 δ(a::Real, b::Real) = a == b ? 1 : 0
 
 @inline sqnorm2(v::AbstractVector{<:Real}) = v[1] * v[1] + v[2] * v[2]
+@inline vec2(x::Real, y::Real) = SVector(x, y)
 
 """
     spin_index(s::Integer)
@@ -214,13 +217,13 @@ Returns
 Notes
 - Throws `ArgumentError` if called with `length(vec) != 2`
 """
-function polar_to_cartesian(vec_polar::Vector{<:Real})
+function polar_to_cartesian(vec_polar::AbstractVector{<:Real})
     if length(vec_polar) != 2
         throw(ArgumentError("Polar to cartesian coordinates requires 2D input."))
     end
     r, ϕ = vec_polar
     x, y = r * cos(ϕ), r * sin(ϕ)
-    return [x, y]
+    return vec2(x, y)
 end
 
 """
@@ -238,14 +241,14 @@ Returns
 Notes
 - Throws `ArgumentError` if called with `length(vec) != 2`
 """
-function cartesian_to_polar(vec::Vector{<:Real})
+function cartesian_to_polar(vec::AbstractVector{<:Real})
     if length(vec) != 2
         throw(ArgumentError("Cartesian to polar coordinates requires 2D input."))
     end
     x, y = vec
     r = hypot(x, y)
     ϕ = atan(y, x)
-    return [r, ϕ]
+    return vec2(r, ϕ)
 end
 
 # ======================

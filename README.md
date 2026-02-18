@@ -23,14 +23,19 @@ Pkg.develop(url="https://github.com/HechenMountain/gluon-sivers-lccqm")
 - Parallelized data generation for form factors, odderon distributions, and the Sivers function using writers.jl script
 - Symbol-based configuration for solvers (`:cuhre`, `:vegas`, `:suave`, `:divonne`)
 - Linear/log spacing controls for writers and sampling utilities (`spacing=:lin` or `:log`)
+- `StaticArrays`-based 2D vector helpers for lower-allocation hot paths (APIs accept `AbstractVector`, including `Vector` and `SVector`)
 
 ## Quick start
 
 ```julia
 using GluonSiversLCCQM
+using StaticArrays
 
 # Example: gluon Sivers at [kx,ky]=[0.5,0] GeV with vegas
 res, err, prob, neval, fail, nregions = gluon_sivers([0.5,0]; μ=0.0, solver=:vegas)
+
+# SVector inputs are also supported
+res_s, err_s, prob_s, neval_s, fail_s, nregions_s = gluon_sivers(@SVector [0.5, 0.0]; μ=0.0, solver=:vegas)
 
 # Form factors
 f1, err_f1, prob, neval, fail, nregions = f1_form_factor([0.1, 0.0])

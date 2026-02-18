@@ -86,7 +86,7 @@ Notes
 function spin_wavefunction(s0::Integer,
                            s1::Integer, s2::Integer, s3::Integer,
                            x1::Real, x2::Real, x3::Real,
-                           k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                           k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
     # Parameters
     if !all(s -> s == 1 || s == -1, (s0,s1,s2,s3))
         error("Invalid spin configuration:  ($(s0), $(s1), $(s2), $(s3)). Each value must be +1 or -1.")
@@ -128,7 +128,7 @@ Notes
 - Wavefunction type (`:exp` or `:pow`) is set in Parameters.jl
 """
 function momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
-                                     k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                                     k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
     # Parameters
     mq2 = MQ^2
     m02 = (hp.sqnorm2(k1) + mq2) / x1 + (hp.sqnorm2(k2) + mq2) / x2 + (hp.sqnorm2(k3) + mq2) / x3
@@ -166,7 +166,7 @@ Notes
 function baryon_wavefunction(s0::Integer,
                              s1::Integer,s2::Integer,s3::Integer,
                              x1::Real, x2::Real, x3::Real,
-                             k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                             k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
     ms_wf =  momentum_space_wavefunction(x1, x2, x3, k1, k2, k3)
     spin_wf = spin_wavefunction(s0, s1, s2, s3, x1, x2, x3, k1, k2, k3)
     wf =  ms_wf * spin_wf / sqrt(3)
@@ -193,7 +193,7 @@ Notes
 """
 function compute_wavefunction(s::Integer,
                               x1::Real, x2::Real, x3::Real,
-                              k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                              k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
     # initialize array with 2^3 spin configurations
     wf = Array{ComplexF64}(undef, 2, 2, 2)
     for s1 in (-1,1), s2 in (-1,1), s3 in (-1,1)
@@ -249,8 +249,8 @@ function normalize_wavefunction()
         r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])
         
         # Reconstruct cartesian momenta from polar coordinates
-        k1 = hp.polar_to_cartesian([r1, ϕ1])
-        k2 = hp.polar_to_cartesian([r2, ϕ2])
+        k1 = hp.polar_to_cartesian(hp.vec2(r1, ϕ1))
+        k2 = hp.polar_to_cartesian(hp.vec2(r2, ϕ2))
         k3 = - (k1 + k2)  # Enforce transverse momentum conservation
 
         # Jacobian
