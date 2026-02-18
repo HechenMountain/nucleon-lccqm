@@ -8,6 +8,15 @@
 # Where nworkers is the number of parallel workers to use.
 
 # ======================
+# Data Directory Setup
+# ======================
+
+const DATA_DIR = let dir = joinpath(dirname(@__DIR__), "data", "csv")
+    isdir(dir) || mkpath(dir)
+    dir
+end
+
+# ======================
 # Environment Setup
 # ======================
 
@@ -30,28 +39,6 @@ flush(stdout)
 end
 
 println(Dates.now(), " Finished module import.")
-
-# ======================
-# Data Directory Setup
-# ======================
-
-"""
-    data_dir(subdir::String="csv")
-
-Get the path to the data output directory.
-Creates the directory if it doesn't exist.
-
-Arguments
-- `subdir`: subdirectory name ("csv" or "plots")
-
-Returns
-- Absolute path to the data subdirectory
-"""
-function data_dir(subdir::String="csv")
-    dir = joinpath(dirname(@__DIR__), "data", subdir)
-    isdir(dir) || mkpath(dir)
-    return dir
-end
 flush(stdout)
 
 # ======================
@@ -71,10 +58,9 @@ Returns
 - Nothing. Writes the CSV file.
 """
 function write_cuba_to_file(filename::String,results::SharedMatrix{Float64})
-    n = length(results[:,1])
     open(filename, "w") do io
     println(io, "k,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions")
-    for i in 1:n
+    for i in axes(results, 1)
         k = results[i,1]
         integral_re = results[i,2]
         integral_im = results[i,3]
@@ -106,11 +92,10 @@ Returns
 - Nothing. Writes the CSV file.
 """
 function write_2d_cuba_to_file(filename::String, k_list::AbstractVector{<:AbstractVector}, results::AbstractMatrix{Float64})
-    n = length(k_list)
     open(filename, "w") do io
         # Header matches write_cuba_to_file but with k_x,k_y instead of single k
         println(io, "k_x,k_y,val_re,val_im,err_re,err_im,prob_re,prob_im,neval,fail,nregions")
-        for i in 1:n
+        for i in eachindex(k_list)
             kx = k_list[i][1]
             ky = k_list[i][2]
             # results columns mirror write_cuba_to_file where col 1 was k (magnitude)
@@ -158,7 +143,7 @@ function write_gluon_sivers_to_csv(kmin::Real, kmax::Real, n::Integer;
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
-    @sync @distributed for i in 1:n
+    @sync @distributed for i in eachindex(k_list)
         k = k_list[i]
         integral, err, prob, neval, fail, nregions = Sivers.gluon_sivers(k; μ=μ, solver=solver)
         results[i, :] .= (Float64(k), Float64(integral[1]), Float64(integral[2]), 
@@ -166,7 +151,7 @@ function write_gluon_sivers_to_csv(kmin::Real, kmax::Real, n::Integer;
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = joinpath(data_dir("csv"), "output_gluon_sivers_$(solver)_$(μ)_$(kmin)_$(kmax).csv")
+    filename = joinpath(DATA_DIR, "output_gluon_sivers_$(solver)_$(μ)_$(kmin)_$(kmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -204,10 +189,11 @@ function write_2d_odderon_distribution_to_csv(s01::Integer,s02::Integer,kmin::Re
     k_vals = vcat(neg_vals, pos_vals)
     # Create 2D list of [kx, ky] pairs covering the Cartesian product of k_vals.
     k_list = [[kx, ky] for kx in k_vals for ky in k_vals]
+    n_points = length(k_list)
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
-    results = SharedArray{Float64}(n,10)
+    results = SharedArray{Float64}(n_points,10)
 
-    @sync @distributed for i in 1:n
+    @sync @distributed for i in eachindex(k_list)
         k = k_list[i]
         # integral, err, prob, neval, fail, nregions = test(k)
         integral, err, prob, neval, fail, nregions = Sivers.odderon_distribution(s01, s02, [0,0], k; μ=μ, solver=solver)
@@ -218,7 +204,7 @@ function write_2d_odderon_distribution_to_csv(s01::Integer,s02::Integer,kmin::Re
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = joinpath(data_dir("csv"), "output_2d_$(s01)_$(s02)_$(solver)_$(μ)_$(kmin)_$(kmax).csv")
+    filename = joinpath(DATA_DIR, "output_2d_$(s01)_$(s02)_$(solver)_$(μ)_$(kmin)_$(kmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_2d_cuba_to_file(filename,k_list,results)
 end
@@ -252,7 +238,7 @@ function write_odderon_distribution_to_csv(kmin::Real, kmax::Real, n::Integer;
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
-    @sync @distributed for i in 1:n
+    @sync @distributed for i in eachindex(k_list)
         k = k_list[i]
         integral, err, prob, neval, fail, nregions = Sivers.odderon_distribution(1, -1, [0,0], [k,0]; μ=μ, solver=solver)
         results[i, :] .= (Float64(k), Float64(integral[1]), Float64(integral[2]), 
@@ -260,7 +246,7 @@ function write_odderon_distribution_to_csv(kmin::Real, kmax::Real, n::Integer;
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = joinpath(data_dir("csv"), "output_$(solver)_$(μ)_$(kmin)_$(kmax).csv")
+    filename = joinpath(DATA_DIR, "output_$(solver)_$(μ)_$(kmin)_$(kmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -293,7 +279,7 @@ function write_odderon_distribution_r_to_csv(rmin::Real, rmax::Real, n::Integer;
     # columns: r, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
-    @sync @distributed for i in 1:n
+    @sync @distributed for i in eachindex(r_list)
         r = r_list[i]
         integral, err, prob, neval, fail, nregions = Sivers.odderon_distribution_r(1, -1, [0,0], [r,0]; μ=μ, solver=solver)
         results[i, :] .= (Float64(r), Float64(integral[1]), Float64(integral[2]), 
@@ -301,7 +287,7 @@ function write_odderon_distribution_r_to_csv(rmin::Real, rmax::Real, n::Integer;
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = joinpath(data_dir("csv"), "output_r_$(solver)_$(μ)_$(rmin)_$(rmax).csv")
+    filename = joinpath(DATA_DIR, "output_r_$(solver)_$(μ)_$(rmin)_$(rmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -346,7 +332,7 @@ function write_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
-    @sync @distributed for i in 1:n
+    @sync @distributed for i in eachindex(Δ_list)
         Δ = [Δ_list[i],0]
         q1, q2, q3 = (2 * q12 + q23 - Δ) / 3, (- q12 + q23 - Δ) / 3, - (q12 + 2 * q23 + Δ) / 3
         integral, err, prob, neval, fail, nregions = Sivers.integrate_cubic_color_correlator(s01, s02, q1, q2, q3; solver=solver)
@@ -355,7 +341,7 @@ function write_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = joinpath(data_dir("csv"), "output_ccc_s01_$(s01)_s02_$(s02)_$(solver)_q12_$(q12)_q23_$(q23)_$(Δmin)_$(Δmax).csv")
+    filename = joinpath(DATA_DIR, "output_ccc_s01_$(s01)_s02_$(s02)_$(solver)_q12_$(q12)_q23_$(q23)_$(Δmin)_$(Δmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -391,7 +377,7 @@ function write_ft_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
     # columns: k, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
-    @sync @distributed for i in 1:n
+    @sync @distributed for i in eachindex(r_list)
         r = r_list[i]
         integral, err, prob, neval, fail, nregions = Sivers.ft_cubic_color_correlator(s01, s02, r; solver=solver)
         results[i, :] .= (Float64(r_list[i]), Float64(integral[1]), Float64(integral[2]), 
@@ -399,7 +385,7 @@ function write_ft_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = joinpath(data_dir("csv"), "output_ft_ccc_s01_$(s01)_s02_$(s02)_$(solver)_$(rmin)_$(rmax).csv")
+    filename = joinpath(DATA_DIR, "output_ft_ccc_s01_$(s01)_s02_$(s02)_$(solver)_$(rmin)_$(rmax).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -429,7 +415,7 @@ function write_f1_form_factor_to_csv(Δmin::Real=0.0, Δmax::Real=3.3, n::Intege
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
-    @sync @distributed for i in 1:n
+    @sync @distributed for i in eachindex(Δ_list)
         Δ = Δ_list[i]
         integral, err, prob, neval, fail, nregions = Sivers.f1_form_factor([Δ, 0])
         results[i, :] .= (Float64(Δ), Float64(integral[1]), Float64(integral[2]),
@@ -437,7 +423,7 @@ function write_f1_form_factor_to_csv(Δmin::Real=0.0, Δmax::Real=3.3, n::Intege
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = joinpath(data_dir("csv"), "output_f1.csv")
+    filename = joinpath(DATA_DIR, "output_f1.csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -467,7 +453,7 @@ function write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δmax::Real=3.3, n::Integ
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
-    @sync @distributed for i in 1:n
+    @sync @distributed for i in eachindex(Δ_list)
         Δ = Δ_list[i]
         integral, err, prob, neval, fail, nregions = Sivers.f2_form_factor([Δ, 0])
         results[i, :] .= (Float64(Δ), Float64(integral[1]), Float64(integral[2]), 
@@ -475,7 +461,7 @@ function write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δmax::Real=3.3, n::Integ
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = joinpath(data_dir("csv"), "output_f2.csv")
+    filename = joinpath(DATA_DIR, "output_f2.csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -505,7 +491,7 @@ function write_f_form_factor_to_csv(s01::Integer,s02::Integer,Δmin::Real=1e-6, 
     # columns: Δ, val_re, val_im, err_re, err_im, prob_re, prob_im, neval, fail, nregions
     results = SharedArray{Float64}(n,10)
 
-    @sync @distributed for i in 1:n
+    @sync @distributed for i in eachindex(Δ_list)
         Δ = Δ_list[i]
         integral, err, prob, neval, fail, nregions = Sivers.f_form_factor(s01,s02,[Δ, 0])
         results[i, :] .= (Float64(Δ), Float64(integral[1]), Float64(integral[2]), 
@@ -513,7 +499,7 @@ function write_f_form_factor_to_csv(s01::Integer,s02::Integer,Δmin::Real=1e-6, 
                           Float64(neval), Float64(fail), Float64(nregions))
     end
     # Write to file
-    filename = joinpath(data_dir("csv"), "output_f_$(s01)_$(s02).csv")
+    filename = joinpath(DATA_DIR, "output_f_$(s01)_$(s02).csv")
     println(Dates.now(), " Writing to file ", filename)
     write_cuba_to_file(filename,results)
 end
@@ -550,17 +536,9 @@ flush(stdout)
 # write_cubic_color_corellator_to_csv(1, 1, 10.01, 30.0, 200, 0, 0; solver=:vegas) 
 # write_cubic_color_corellator_to_csv(1, -1, 1e-4, 10.001, 100, 0, 0; solver=:vegas)
 
-write_odderon_distribution_r_to_csv(0.01, 1, 36; μ=0, solver=:vegas,spacing=:log) # <--- Currently running writers.log
-write_odderon_distribution_r_to_csv(1.01, 4, 36; μ=0, solver=:vegas)
-write_odderon_distribution_r_to_csv(4.01, 7, 36; μ=0, solver=:vegas)
-write_odderon_distribution_r_to_csv(7.01, 10, 36; μ=0, solver=:vegas)
-write_odderon_distribution_r_to_csv(10.01, 13, 36; μ=0, solver=:vegas)
-write_odderon_distribution_r_to_csv(13.01, 16, 36; μ=0, solver=:vegas)
-write_odderon_distribution_r_to_csv(16.01, 19, 36; μ=0, solver=:vegas)
-write_odderon_distribution_r_to_csv(19.01, 20, 10; μ=0, solver=:vegas)
+# write_odderon_distribution_r_to_csv(0.01, 1, 36; μ=0, solver=:vegas,spacing=:log) 
 
-# write_odderon_distribution_to_csv(1e-5, 0.9e-2, 36 ; μ=0, solver=:vegas) 
-# write_odderon_distribution_to_csv(1e-2, 2, 200 ; μ=0, solver=:vegas)
+write_odderon_distribution_to_csv(2.01, 4, 40 ; μ=0, solver=:vegas) # <--- Currently running writers.log
 
 # write_ft_cubic_color_corellator_to_csv(1,1, 1e-4, 3.001, 30; solver=:vegas)
 # write_ft_cubic_color_corellator_to_csv(1,-1, 1e-4, 3.001, 30; solver=:vegas)

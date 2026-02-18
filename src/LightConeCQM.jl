@@ -91,7 +91,7 @@ function spin_wavefunction(s0::Integer,
     if !all(s -> s == 1 || s == -1, (s0,s1,s2,s3))
         error("Invalid spin configuration:  ($(s0), $(s1), $(s2), $(s3)). Each value must be +1 or -1.")
     end
-    k12, k22, k32 = sum(k1.^2), sum(k2.^2), sum(k3.^2)
+    k12, k22, k32 = hp.sqnorm2(k1), hp.sqnorm2(k2), hp.sqnorm2(k3)
     mq = MQ
     mq2 = mq^2
     m02 = (k12 + mq2)/x1 + (k22 + mq2)/x2 + (k32 + mq2)/x3
@@ -131,9 +131,9 @@ function momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
                                      k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
     # Parameters
     mq2 = MQ^2
-    m02 = (sum(k1.^2) + mq2) / x1 + (sum(k2.^2) + mq2) / x2 + (sum(k3.^2) + mq2) / x3
+    m02 = (hp.sqnorm2(k1) + mq2) / x1 + (hp.sqnorm2(k2) + mq2) / x2 + (hp.sqnorm2(k3) + mq2) / x3
     if WF_TYPE == :pow
-        ms_wf = (1 + m02 / BETA^2)^(-P)
+        ms_wf = (1 + m02 / BETA^2)^(-power_exponent())
     elseif WF_TYPE == :exp
         ms_wf = exp(-m02 / (2 * BETA^2))
     else

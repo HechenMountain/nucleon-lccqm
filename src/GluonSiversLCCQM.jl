@@ -59,7 +59,7 @@ import .Helpers as hp
 # ======================
 
 # Re-export parameters for convenient access
-export WF_TYPE, P, MQ, BETA, NORM, NC, ALPHA_S, M_N
+export WF_TYPE, MQ, BETA, NORM, NC, ALPHA_S, M_N, power_exponent
 
 # Export functions
 export  normalize_wavefunction,
@@ -196,14 +196,13 @@ Notes
 """
 function f2_form_factor(Δ::Vector{<:Real})
     ΔL, ΔR = complex(Δ[1], -Δ[2]) , complex(Δ[1], Δ[2]) 
-    Δ2 = sum(Δ.^2)
+    Δ2 = hp.sqnorm2(Δ)
     # Notation in notes reversed: Lambda', Lambda = s02, s01
     fdu, err_du, prob, neval, fail, nregions = f_form_factor(1, -1, Δ)
     fud, err_ud, = f_form_factor(-1, 1, Δ)
 
     # Calculate real and imaginary parts separately
     # fdu and fud are arrays with [re, im] parts
-    prf = M_N / Δ2
     result_re = M_N^2 / Δ2 * (ΔL / M_N * fdu[1] - ΔR / M_N * fud[1])
     result_im = M_N^2 / Δ2 * (ΔL / M_N * fdu[2] - ΔR / M_N * fud[2])
     err_re = M_N / sqrt(Δ2) * sqrt(err_du[1]^2 + err_ud[1]^2)
@@ -436,7 +435,7 @@ function ft_cubic_color_correlator(s01::Integer,s02::Integer,
         ccc = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, k1, k2, k3)
 
         # Hankel factor
-        Δabs = sqrt(sum(Δ.^2))
+        Δabs = sqrt(hp.sqnorm2(Δ))
         h_factor = Δabs * besselj0(Δabs * rabs)
 
         # Full result
@@ -535,7 +534,7 @@ function odderon_distribution(s01::Integer,s02::Integer,
             # Regenerate initial q2
             q2 = hp.polar_to_cartesian([r3, ϕ3])
             q3 = k + q2
-            q22, q32 = sum(q2.^2), sum(q3.^2)
+            q22, q32 = hp.sqnorm2(q2), hp.sqnorm2(q3)
             # Add regulator
             q22 += μ2
             q32 += μ2
@@ -546,13 +545,13 @@ function odderon_distribution(s01::Integer,s02::Integer,
             total /= den
         else
             # This part can probably also be simplified
-            q22 = sum(q2.^2)
+            q22 = hp.sqnorm2(q2)
             # Add regulator
             q22 += μ2
             for s in (+1,-1)
                 q1, q3 = s * k, - (s * k + q2)
                 ccc = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, k1, k2, k3)
-                q32 = sum(q3.^2)
+                q32 = hp.sqnorm2(q3)
                 # Add regulator
                 q32 += μ2
                 total += s * ccc / q32
@@ -615,10 +614,6 @@ function odderon_distribution_r(s01::Integer,s02::Integer,
     sol = get(hp.SOLVERS, solver) do
         throw(ArgumentError("solver must be one of: :cuhre, :vegas, :divonne, :suave"))
     end
-    
-    if !iszero(Δ)
-        throw(ArgumentError("Implementation currently only for vanishing Δ."))
-    end
 
     function integrand(x,f)
         # Regulate endpoint singularities
@@ -644,13 +639,14 @@ function odderon_distribution_r(s01::Integer,s02::Integer,
         d4q = d2q1 * d2q2
 
         μ2 = μ^2 # Regulator squared
-        q12, q22, q32 = sum(q1.^2) + μ2, sum(q2.^2) + μ2, sum(q3.^2) + μ2
+        q12, q22, q32 = hp.sqnorm2(q1) + μ2, hp.sqnorm2(q2) + μ2, hp.sqnorm2(q3) + μ2
         # Jacobian
         d10x = d2x * d4k * d4q # 2 + 4 + 4 = 10d integral
         
         # Simplified integrand for spin-flip
         total = cubic_color_correlator(s01, s02, q1, q2, q3, x1, x2, x3, k1, k2, k3)
         den = q12 * q22 * q32
+        # Simplified integrand in forward limit
         if Δ == [0,0]
             trig1, trig2, trig3 = sin(.5 * q1'r), sin(.5 * q2'r), sin(.5 * q3'r)
             trig = 4 / 3 * trig1 * trig2 * trig3
@@ -714,7 +710,7 @@ function gluon_sivers(k::Vector{<:Real}; μ::Real=0.00, solver::Symbol=:vegas)
 
     odderon_dist, err, prob, neval, fail, nregions  = odderon_distribution(s01, s02, Δ, k; μ=μ, solver=solver)
     # 1 / k^2 partially cancels with definition of Sivers function
-    kabs = sqrt(sum(k.^2))
+    kabs = sqrt(hp.sqnorm2(k))
     prf = 8 * M_N * NC / π * ALPHA_S^2 / kabs
     result = prf * odderon_dist
     err .*= abs(prf)

@@ -9,6 +9,7 @@ using Cuba
 
 export  δ,
         spin_index,
+    sqnorm2,
         cuba_to_parton_x, 
         cuba_to_polar,
         cuba_to_hyperspherical,
@@ -42,6 +43,8 @@ Returns
 """
 δ(a::Real, b::Real) = a == b ? 1 : 0
 
+@inline sqnorm2(v::AbstractVector{<:Real}) = v[1] * v[1] + v[2] * v[2]
+
 """
     spin_index(s::Integer)
 
@@ -53,7 +56,14 @@ Arguments
 Returns
 - `index::Integer`: index 1 for spin -1, index 2 for spin +1
 """
-spin_index(s::Integer) = (s == -1) ? 1 : 2
+function spin_index(s::Integer)
+    if s == -1
+        return 1
+    elseif s == 1
+        return 2
+    end
+    throw(ArgumentError("Invalid spin value: $s. Expected -1 or 1."))
+end
 
 """
     regulate_cuba(::Vector{<:Real})

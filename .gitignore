@@ -13,6 +13,9 @@ output*
 *.log
 *.pdf
 
+# Unused sivers.ipynb
+/notebooks/sivers.ipynb
+
 # Data directory (outputs stored here)
 /data/*
 
@@ -20,7 +23,6 @@ output*
 /*.ipynb
 # Temporary notebooks
 /notebooks/charm.ipynb
-/notebooks/plots.ipynb
 
 # Build artifacts
 Manifest.toml
@@ -38,3 +40,5 @@ documenter.jl
 /exp_wf/
 /pow_wf/
 /old/
+notebooks/plots_all.ipynb
+.gitignore

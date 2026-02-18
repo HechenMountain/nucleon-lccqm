@@ -19,7 +19,7 @@ Notes
 - Generators follow the physics normalization; canonical matrices are rescaled by 1/2
 """
 function gell_mann(n::Int)
-    gens = []
+    gens = Matrix{ComplexF64}[]
 
     # Symmetric generators
     for k in 2:n

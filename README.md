@@ -50,6 +50,37 @@ Uncomment or edit the desired `write_*` calls near the end of `scripts/writers.j
 ## Notebooks
 See `notebooks/sivers.ipynb` for interactive examples.
 
+### Plot Generation
+Use `notebooks/plots.ipynb` to generate figures from generated data:
+
+**Available plots:**
+- Form factors (F₁/F₂) with experimental and power-law parametrization comparisons
+- Gluon Sivers function with log-fit analysis
+- Spin-dependent odderon distribution with fitted model curves
+- Real-space and momentum-space evolution distributions (Y = 0,1,2,4)
+- Fourier-transform comparisons
+- Open-charm production cross-sections
+
+**Data Organization:**
+- `data/csv/exp/` — data from experimental wavefunction parametrization
+- `data/csv/pow/` — data from power-law wavefunction parametrization  
+- `data/csv/1707.09063/` — reference form factor data
+
+**Requirements:**
+- Python 3.7+
+- **Core packages:**
+  - `numpy` — numerical computing
+  - `scipy` — integration, interpolation, optimization, special functions
+  - `matplotlib` — plotting
+  - `joblib` — parallel execution
+- **Optional:**
+  - LaTeX
+
+**Usage:**
+1. Generate data using `scripts/writers.jl`
+2. Open `notebooks/plots.ipynb` in Jupyter and run cells sequentially
+3. PDFs are saved to `data/plots/exp/` and `data/plots/pow/`, respectively
+
 ## Configuration
 Adjust model parameters in `src/Parameters.jl`:
 - `WF_TYPE`: wavefunction type (`:pow` or `:exp`)
@@ -74,6 +105,6 @@ gluon-sivers-lccqm/
 ├── scripts/
 │   └── writers.jl         # Parallel batch computation scripts
 └── notebooks/
-    └── sivers.ipynb       # Interactive examples
+    └── plots.ipynb       # Plot generation using Python's matplotlib
 ```
 

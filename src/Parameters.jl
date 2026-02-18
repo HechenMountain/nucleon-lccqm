@@ -14,7 +14,7 @@ should be computed using `normalize_wavefunction()` for each parameter set.
 module Parameters
 
 # Export all parameters
-export WF_TYPE, P, MQ, BETA, NORM, NC, ALPHA_S, M_N
+export WF_TYPE, MQ, BETA, NORM, NC, ALPHA_S, M_N, power_exponent
 
 # ======================
 # Original parameters
@@ -47,6 +47,25 @@ const NORM = 87088.44473120169 # Baryon wavefunction norm from normalize_wavefun
 const NC = 3                   # Number of colors
 const ALPHA_S = 0.25           # g^2 / (4π), Strong coupling constant
 const M_N = 0.93827            # Nucleon mass (GeV)
+
+"""
+    power_exponent()
+
+Return the power exponent `P` for `WF_TYPE == :pow`.
+
+Throws
+- `ArgumentError` if the active wavefunction type is not `:pow`
+- `UndefVarError` if `WF_TYPE == :pow` but `P` is not defined
+"""
+function power_exponent()
+    if WF_TYPE != :pow
+        throw(ArgumentError("power_exponent() is only defined for WF_TYPE == :pow"))
+    end
+    if !isdefined(@__MODULE__, :P)
+        throw(UndefVarError(:P))
+    end
+    return getfield(@__MODULE__, :P)
+end
 
 # ======================
 end # module Parameters
