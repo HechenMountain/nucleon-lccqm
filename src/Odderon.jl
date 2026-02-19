@@ -18,7 +18,7 @@ module Odderon
 # Imports
 # ======================
 
-using SpecialFunctions: besselj0, besselj1
+using SpecialFunctions: besselj1
 
 # Import parameters from parent module
 import ..NORM, ..NC, ..ALPHA_S, ..M_N
@@ -270,7 +270,7 @@ function ft_cubic_color_correlator(s01::Integer,s02::Integer,
 
         # Hankel factor
         Δabs = sqrt(hp.sqnorm2(Δ))
-        h_factor = Δabs * besselj0(Δabs * rabs)
+        h_factor = im * Δabs * besselj1(Δabs * rabs)
 
         # Full result
         res = ccc * h_factor * d7x

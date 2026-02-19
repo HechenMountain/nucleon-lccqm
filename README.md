@@ -51,12 +51,12 @@ using StaticArrays
 # Example: gluon Sivers at [kx,ky]=[0.5,0] GeV with vegas
 res, err, prob, neval, fail, nregions = gluon_sivers([0.5,0]; μ=0.0, solver=:vegas)
 
-# SVector inputs are also supported
-res_s, err_s, prob_s, neval_s, fail_s, nregions_s = gluon_sivers(@SVector [0.5, 0.0]; μ=0.0, solver=:vegas)
+# SVector inputs are also supported (and recommended)
+res_s, err_s, prob_s, neval_s, fail_s, nregions_s = gluon_sivers(SVector(0.5, 0.0); μ=0.0, solver=:vegas)
 
 # Form factors
-f1, err_f1, prob, neval, fail, nregions = f1_form_factor([0.1, 0.0])
-f2, err_f2, prob, neval, fail, nregions = f2_form_factor([0.1, 0.0])
+f1, err_f1, prob, neval, fail, nregions = f1_form_factor(SVector(0.1, 0.0))
+f2, err_f2, prob, neval, fail, nregions = f2_form_factor(SVector(0.1, 0.0))
 
 # Normalize wavefunction
 norm, err, prob, neval, fail, nregions = normalize_wavefunction()
@@ -72,9 +72,6 @@ Or on Linux/macOS, to run in the background:
 nohup julia --project=. -p 4 scripts/writers.jl > writers.log 2>&1 &
 ```
 Uncomment or edit the desired `write_*` calls near the end of `scripts/writers.jl`. All solver arguments are Symbols (e.g., `solver=:vegas`), and spacing is controlled with `spacing=:lin` or `:log`.
-
-## Notebooks
-See `notebooks/sivers.ipynb` for interactive examples.
 
 ### Plot Generation
 Use `notebooks/plots.ipynb` to generate figures from generated data:
@@ -122,7 +119,7 @@ Adjust model parameters in `src/parameters.jl`:
 nucleon-lccqm/
 ├── Project.toml            # Package metadata & dependencies
 ├── src/
-│   ├── NucleonLCCQM.jl     # Main module (entry point, includes all submodules)
+│   ├── NucleonLCCQM.jl     # Main module
 │   ├── parameters.jl       # Physical parameters
 │   ├── Helpers.jl          # Helper functions & coordinate transforms
 │   ├── GellMann.jl         # SU(N) generators & structure constants
@@ -135,4 +132,10 @@ nucleon-lccqm/
 └── notebooks/
     └── plots.ipynb         # Plot generation using Python's matplotlib
 ```
+
+## Data Availability
+
+Generated data and plots from this model are archived on Zenodo:
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18703045.svg)](https://doi.org/10.5281/zenodo.18703045)
 
