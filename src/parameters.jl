@@ -1,20 +1,11 @@
-"""
-    Parameters
-
-Physical parameters for the Sivers function calculation.
-
-## Wavefunction types
-- `:exp`: Exponential wavefunction
-- `:pow`: Power-law wavefunction
-
-## Parameter sets
-Uncomment the desired parameter set below. The normalization constant `NORM`
-should be computed using `normalize_wavefunction()` for each parameter set.
-"""
-module Parameters
-
-# Export all parameters
-export WF_TYPE, MQ, BETA, NORM, NC, ALPHA_S, M_N, power_exponent
+# Physical parameters for the Sivers function calculation.
+#
+# Wavefunction types:
+#   :exp  — exponential wavefunction
+#   :pow  — power-law wavefunction
+#
+# Uncomment the desired parameter set below. The normalization constant NORM
+# should be recomputed via normalize_wavefunction() whenever MQ, BETA, or P change.
 
 # ======================
 # Original parameters
@@ -66,6 +57,3 @@ function power_exponent()
     end
     return getfield(@__MODULE__, :P)
 end
-
-# ======================
-end # module Parameters

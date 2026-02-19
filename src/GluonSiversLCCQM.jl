@@ -20,7 +20,7 @@ res, err, prob, neval, fail, nregions = gluon_sivers(0.5; μ=0.0, solver=:vegas)
 ```
 
 ## Configuration
-Model parameters (masses, wavefunction type, normalizations) are defined in `src/Parameters.jl`.
+Model parameters (masses, wavefunction type, normalizations) are defined in `src/parameters.jl`.
 Adjust WF_TYPE, MQ, BETA, NORM, etc. as needed.
 
 ## Solvers
@@ -29,7 +29,7 @@ Recommended solver is :vegas for integrals with dimension ≥ 6, otherwise :cuhr
 """
 module GluonSiversLCCQM
 # Main module for computing the gluon Sivers function
-# Parameters are defined in Parameters.jl module
+# Parameters are included from parameters.jl
 # Helpers are defined in Helpers.jl
 # Light-cone wavefunction module in LightConeCQM.jl
 
@@ -41,27 +41,22 @@ using Cuba
 # Bessel functions
 using SpecialFunctions: besselj0, besselj1
 
-# Include and use Parameters submodule
-include(joinpath(@__DIR__, "Parameters.jl"))
-using .Parameters
+# Include parameters
+include(joinpath(@__DIR__, "parameters.jl"))
+
+# Helpers, coordinate transformations, etc.
+include(joinpath(@__DIR__, "Helpers.jl"))
+import .Helpers as hp
 
 # Light-cone constituent quark model wavefunctions
 include(joinpath(@__DIR__, "LightConeCQM.jl"))
 import .LightConeCQM as wfs
 const normalize_wavefunction = wfs.normalize_wavefunction # Bring into namespace for export
 
-# Helpers, coordinate transformations, etc.
-include(joinpath(@__DIR__, "Helpers.jl"))
-import .Helpers as hp
-
 # ======================
 # Exports
 # ======================
 
-# Re-export parameters for convenient access
-export WF_TYPE, MQ, BETA, NORM, NC, ALPHA_S, M_N, power_exponent
-
-# Export functions
 export  normalize_wavefunction,
         f1_form_factor,
         f2_form_factor,
@@ -75,7 +70,7 @@ export  normalize_wavefunction,
 # Constants
 # ======================
 
-# Parameters and SU(NC) algebra set in Parameters.jl
+# Parameters and SU(NC) algebra set in parameters.jl
 const dabc2 = (NC^2 - 4) * (NC^2 - 1) / NC ;
 
 # ======================
@@ -83,7 +78,7 @@ const dabc2 = (NC^2 - 4) * (NC^2 - 1) / NC ;
 # ======================
 
 """
-    f_form_factor(s01::Integer, s02::Integer, Δ::Vector{<:Real})
+    f_form_factor(s01::Integer, s02::Integer, Δ::AbstractVector{<:Real})
 
 Compute the F-type form factor needed to generate F1 and F2.
 
@@ -148,7 +143,7 @@ function f_form_factor(s01::Integer, s02::Integer, Δ::AbstractVector{<:Real})
 end
 
 """
-    f1_form_factor(Δ::Vector{<:Real})
+    f1_form_factor(Δ::AbstractVector{<:Real})
 
 Compute the F1 form factor.
 
@@ -174,7 +169,7 @@ function f1_form_factor(Δ::AbstractVector{<:Real})
 end
 
 """
-    f2_form_factor(Δ::Vector{<:Real})
+    f2_form_factor(Δ::AbstractVector{<:Real})
 
 Compute the F2 form factor.
 
@@ -201,13 +196,15 @@ function f2_form_factor(Δ::AbstractVector{<:Real})
     fdu, err_du, prob, neval, fail, nregions = f_form_factor(1, -1, Δ)
     fud, err_ud, = f_form_factor(-1, 1, Δ)
 
-    # Calculate real and imaginary parts separately
-    # fdu and fud are arrays with [re, im] parts
-    result_re = M_N^2 / Δ2 * (ΔL / M_N * fdu[1] - ΔR / M_N * fud[1])
-    result_im = M_N^2 / Δ2 * (ΔL / M_N * fdu[2] - ΔR / M_N * fud[2])
+    # Compose full complex form factors and contract with ΔL/ΔR
+    fdu_c = complex(fdu[1], fdu[2])
+    fud_c = complex(fud[1], fud[2])
+    full = M_N^2 / Δ2 * (ΔL / M_N * fdu_c - ΔR / M_N * fud_c)
+    result_re = real(full)
+    result_im = imag(full)
     err_re = M_N / sqrt(Δ2) * sqrt(err_du[1]^2 + err_ud[1]^2)
     err_im = M_N / sqrt(Δ2) * sqrt(err_du[2]^2 + err_ud[2]^2)
-    
+
     return [result_re, result_im], [err_re, err_im], prob, neval, fail, nregions
 end
 
@@ -217,9 +214,9 @@ end
 
 """
     cubic_color_correlator(s01::Integer,s02::Integer,
-                           q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real},
+                           q1::AbstractVector{<:Real}, q2::AbstractVector{<:Real}, q3::AbstractVector{<:Real},
                            x1::Real, x2::Real, x3::Real,
-                           k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                           k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
 
 Compute the unintegrated cubic color correlator by summing one-, two-, and three-body contributions.
 
@@ -317,7 +314,7 @@ end
 
 """
     integrate_cubic_color_correlator(s01::Integer,s02::Integer,
-                                     q1::Vector{<:Real}, q2::Vector{<:Real}, q3::Vector{<:Real};
+                                     q1::AbstractVector{<:Real}, q2::AbstractVector{<:Real}, q3::AbstractVector{<:Real};
                                      solver::Symbol=:vegas)
 
 Compute the integrated cubic color correlator.
@@ -416,7 +413,7 @@ function ft_cubic_color_correlator(s01::Integer,s02::Integer,
         # Momenta
         r1, ϕ1, d2k1 = hp.cuba_to_polar(x[3:4])      # k1
         r2, ϕ2, d2k2 = hp.cuba_to_polar(x[5:6])      # k2
-        r3, dΔ = x[1] / (1 - x[7]), 1 / (1 - x[7])^2 # Δ
+        r3, dΔ = x[7] / (1 - x[7]), 1 / (1 - x[7])^2 # Δ
     
         # Reconstruct cartesian momenta from polar coordinates
         k1 = hp.polar_to_cartesian(hp.vec2(r1, ϕ1))
@@ -460,7 +457,7 @@ end
 
 """
     odderon_distribution(s01::Integer,s02::Integer,
-                         Δ::Vector{<:Real}, k::Vector{<:Real};
+                         Δ::AbstractVector{<:Real}, k::AbstractVector{<:Real};
                          μ::Real=0.00, solver::Symbol=:vegas)
 
 Compute the Odderon distribution O * k^2 for momentum transfer k and Δ.
@@ -582,7 +579,7 @@ end
 
 """
     odderon_distribution_r(s01::Integer,s02::Integer,
-                         Δ::Vector{<:Real}, r::Vector{<:Real};
+                         Δ::AbstractVector{<:Real}, r::AbstractVector{<:Real};
                          μ::Real=0.00, solver::Symbol=:vegas)
 
 Compute the Odderon distribution O in position space r and Δ.
@@ -678,13 +675,13 @@ function odderon_distribution_r(s01::Integer,s02::Integer,
 end
 
 """
-    gluon_sivers(k::Vector{<:Real}; μ::Real=0.00, solver::Symbol=:vegas)
+    gluon_sivers(k::AbstractVector{<:Real}; μ::Real=0.00, solver::Symbol=:vegas)
 
 Compute the gluon Sivers function for momentum transfer k.
 
 Arguments
-- `k`: Modulus of transverse momentum transfer
-- `μ`: Regulator for integrand (default: 0.01)
+- `k`: 2D transverse momentum vector in cartesian coordinates
+- `μ`: Regulator for integrand (default: 0.00)
 - `solver`: Integration strategy. Options: :cuhre, :vegas, :divonne, :suave. Default is :vegas
 
 Returns

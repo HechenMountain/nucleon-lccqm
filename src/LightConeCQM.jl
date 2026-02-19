@@ -12,9 +12,8 @@ module LightConeCQM
 # Integration
 using Cuba
 
-# Include Parameters submodule
-include(joinpath(@__DIR__, "Parameters.jl"))
-using .Parameters
+# Include parameters
+include(joinpath(@__DIR__, "parameters.jl"))
 
 # Helpers, coordinate transformations, etc.
 include(joinpath(@__DIR__, "Helpers.jl"))
@@ -66,7 +65,7 @@ const SPIN_MAP = Dict{NTuple{4, Int}, Function}(
     spin_wavefunction(s0::Integer,
                       s1::Integer,s2::Integer,s3::Integer,
                       x1::Real, x2::Real, x3::Real,
-                      k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                      k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
 
 Spin dependence of the baryon wavefunction obtained from Clebsch-Gordan coefficients.
 Index 0 refers to proton; 1–3 are valence quark indices.
@@ -112,7 +111,7 @@ end
 
 """
     momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
-                                k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                                k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
 
 Momentum dependence of the baryon wavefunction.
 
@@ -125,7 +124,7 @@ Returns
 
 Notes
 - Momenta should be cartesian
-- Wavefunction type (`:exp` or `:pow`) is set in Parameters.jl
+- Wavefunction type (`:exp` or `:pow`) is set in parameters.jl
 """
 function momentum_space_wavefunction(x1::Real, x2::Real, x3::Real,
                                      k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
@@ -146,7 +145,7 @@ end
     baryon_wavefunction(s0::Integer,
                         s1::Integer,s2::Integer,s3::Integer,
                         x1::Real, x2::Real, x3::Real,
-                        k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                        k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
 Compute product of spinor and momentum space wave function.
 
 Arguments
@@ -176,7 +175,7 @@ end
 """
     compute_wavefunction(s::Integer,
                          x1::Real, x2::Real, x3::Real,
-                         k1::Vector{<:Real}, k2::Vector{<:Real}, k3::Vector{<:Real})
+                         k1::AbstractVector{<:Real}, k2::AbstractVector{<:Real}, k3::AbstractVector{<:Real})
 
 Precompute wavefunction and write index combinations to an array.
 
@@ -231,10 +230,10 @@ end
 """
     normalize_wavefunction()
 
-Normalize the baryon wave function with parameters defined in Parameters.jl
+Normalize the baryon wave function with parameters defined in parameters.jl
 
 Returns
-- `NORM::Float64`: normalization factor (to be set in Parameters.jl afterwards)
+- `NORM::Float64`: normalization factor (to be set in parameters.jl afterwards)
 - `err::Vector{Float64}`: [err_re, err_im] error estimates
 
 Notes
