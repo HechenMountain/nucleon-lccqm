@@ -40,13 +40,13 @@ using Distributed, Dates, SharedArrays, StaticArrays
 # Ensure all workers use the same project before any package import callbacks fire
 @everywhere (using Pkg; Pkg.activate($PROJECT_ROOT); Pkg.instantiate())
 
-import GluonSiversLCCQM as gs
+import NucleonLCCQM as lc
 
-# Load Sivers package on all workers
+# Load package on all workers
 println(Dates.now(), " Starting module import for $(nworkers()) workers...")
 flush(stdout)
 
-@everywhere (import GluonSiversLCCQM as gs; using SharedArrays, StaticArrays)
+@everywhere (import NucleonLCCQM as lc; using SharedArrays, StaticArrays)
 println(Dates.now(), " Finished module import.")
 flush(stdout)
 
@@ -54,7 +54,7 @@ flush(stdout)
 # Data Directory
 # ======================
 const DATA_DIR = let
-    wf_dir = gs.WF_TYPE == :exp ? "exp" : gs.WF_TYPE == :pow ? "pow" : String(gs.WF_TYPE)
+    wf_dir = lc.WF_TYPE == :exp ? "exp" : lc.WF_TYPE == :pow ? "pow" : String(lc.WF_TYPE)
     dir = joinpath(dirname(@__DIR__), "data", "csv", wf_dir)
     isdir(dir) || mkpath(dir)
     dir
@@ -164,7 +164,7 @@ function write_gluon_sivers_to_csv(kmin::Real, kmax::Real, n::Integer;
 
     @sync @distributed for i in eachindex(k_list)
         k = k_list[i]
-        integral, err, prob, neval, fail, nregions = gs.gluon_sivers(SVector(k, 0.0); μ=μ, solver=solver)
+        integral, err, prob, neval, fail, nregions = lc.gluon_sivers(SVector(k, 0.0); μ=μ, solver=solver)
         results[i, :] .= (Float64(k), Float64(integral[1]), Float64(integral[2]), 
                           Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
                           Float64(neval), Float64(fail), Float64(nregions))
@@ -215,7 +215,7 @@ function write_2d_odderon_distribution_to_csv(s01::Integer,s02::Integer,kmin::Re
     @sync @distributed for i in eachindex(k_list)
         k = k_list[i]
         # integral, err, prob, neval, fail, nregions = test(k)
-        integral, err, prob, neval, fail, nregions = gs.odderon_distribution(s01, s02, SVector(0.0, 0.0), k; μ=μ, solver=solver)
+        integral, err, prob, neval, fail, nregions = lc.odderon_distribution(s01, s02, SVector(0.0, 0.0), k; μ=μ, solver=solver)
         # store magnitude |k| in the first column (existing CSV expects a scalar k)
         k_mag = hypot(k[1], k[2])
         results[i, :] .= (Float64(k_mag), Float64(integral[1]), Float64(integral[2]), 
@@ -259,7 +259,7 @@ function write_odderon_distribution_to_csv(kmin::Real, kmax::Real, n::Integer;
 
     @sync @distributed for i in eachindex(k_list)
         k = k_list[i]
-        integral, err, prob, neval, fail, nregions = gs.odderon_distribution(1, -1, SVector(0.0, 0.0), SVector(k, 0.0); μ=μ, solver=solver)
+        integral, err, prob, neval, fail, nregions = lc.odderon_distribution(1, -1, SVector(0.0, 0.0), SVector(k, 0.0); μ=μ, solver=solver)
         results[i, :] .= (Float64(k), Float64(integral[1]), Float64(integral[2]), 
                           Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
                           Float64(neval), Float64(fail), Float64(nregions))
@@ -300,7 +300,7 @@ function write_odderon_distribution_r_to_csv(rmin::Real, rmax::Real, n::Integer;
 
     @sync @distributed for i in eachindex(r_list)
         r = r_list[i]
-        integral, err, prob, neval, fail, nregions = gs.odderon_distribution_r(1, -1, SVector(0.0, 0.0), SVector(r, 0.0); μ=μ, solver=solver)
+        integral, err, prob, neval, fail, nregions = lc.odderon_distribution_r(1, -1, SVector(0.0, 0.0), SVector(r, 0.0); μ=μ, solver=solver)
         results[i, :] .= (Float64(r), Float64(integral[1]), Float64(integral[2]), 
                           Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
                           Float64(neval), Float64(fail), Float64(nregions))
@@ -355,7 +355,7 @@ function write_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
     @sync @distributed for i in eachindex(Δ_list)
         Δ = SVector(Δ_list[i], 0.0)
         q1, q2, q3 = (2 * q12 + q23 - Δ) / 3, (- q12 + q23 - Δ) / 3, - (q12 + 2 * q23 + Δ) / 3
-        integral, err, prob, neval, fail, nregions = gs.integrate_cubic_color_correlator(s01, s02, q1, q2, q3; solver=solver)
+        integral, err, prob, neval, fail, nregions = lc.integrate_cubic_color_correlator(s01, s02, q1, q2, q3; solver=solver)
         results[i, :] .= (Float64(Δ_list[i]), Float64(integral[1]), Float64(integral[2]), 
                           Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
                           Float64(neval), Float64(fail), Float64(nregions))
@@ -399,7 +399,7 @@ function write_ft_cubic_color_corellator_to_csv(s01::Integer,s02::Integer,
 
     @sync @distributed for i in eachindex(r_list)
         r = r_list[i]
-        integral, err, prob, neval, fail, nregions = gs.ft_cubic_color_correlator(s01, s02, r; solver=solver)
+        integral, err, prob, neval, fail, nregions = lc.ft_cubic_color_correlator(s01, s02, r; solver=solver)
         results[i, :] .= (Float64(r_list[i]), Float64(integral[1]), Float64(integral[2]), 
                           Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
                           Float64(neval), Float64(fail), Float64(nregions))
@@ -437,7 +437,7 @@ function write_f1_form_factor_to_csv(Δmin::Real=0.0, Δmax::Real=3.3, n::Intege
 
     @sync @distributed for i in eachindex(Δ_list)
         Δ = Δ_list[i]
-        integral, err, prob, neval, fail, nregions = gs.f1_form_factor(SVector(Δ, 0.0))
+        integral, err, prob, neval, fail, nregions = lc.f1_form_factor(SVector(Δ, 0.0))
         results[i, :] .= (Float64(Δ), Float64(integral[1]), Float64(integral[2]),
                           Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
                           Float64(neval), Float64(fail), Float64(nregions))
@@ -475,7 +475,7 @@ function write_f2_form_factor_to_csv(Δmin::Real=1e-6, Δmax::Real=3.3, n::Integ
 
     @sync @distributed for i in eachindex(Δ_list)
         Δ = Δ_list[i]
-        integral, err, prob, neval, fail, nregions = gs.f2_form_factor(SVector(Δ, 0.0))
+        integral, err, prob, neval, fail, nregions = lc.f2_form_factor(SVector(Δ, 0.0))
         results[i, :] .= (Float64(Δ), Float64(integral[1]), Float64(integral[2]), 
                           Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
                           Float64(neval), Float64(fail), Float64(nregions))
@@ -513,7 +513,7 @@ function write_f_form_factor_to_csv(s01::Integer,s02::Integer,Δmin::Real=1e-6, 
 
     @sync @distributed for i in eachindex(Δ_list)
         Δ = Δ_list[i]
-        integral, err, prob, neval, fail, nregions = gs.f_form_factor(s01,s02,SVector(Δ, 0.0))
+        integral, err, prob, neval, fail, nregions = lc.f_form_factor(s01,s02,SVector(Δ, 0.0))
         results[i, :] .= (Float64(Δ), Float64(integral[1]), Float64(integral[2]), 
                           Float64(err[1]), Float64(err[2]), Float64(prob[1]), Float64(prob[2]),
                           Float64(neval), Float64(fail), Float64(nregions))
@@ -547,7 +547,7 @@ write_f1_form_factor_to_csv() # <--- Currently running writers.log
 # ]
 
 # results = pmap(xs) do (a,b,c,d)
-#     gs.odderon_distribution(a,b,c,d)
+#     lc.odderon_distribution(a,b,c,d)
 # end
 
 # for r in results

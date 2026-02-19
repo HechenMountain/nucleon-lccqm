@@ -1,4 +1,4 @@
-module LightConeCQM
+module Wavefunctions
 
 # Contains wavefunction related code for the 
 # light-cone constituent quark model (LC-CQM)
@@ -12,12 +12,12 @@ module LightConeCQM
 # Integration
 using Cuba
 
-# Include parameters
-include(joinpath(@__DIR__, "parameters.jl"))
+# Import parameters from parent module
+import ..MQ, ..BETA, ..WF_TYPE
+import ..power_exponent
 
-# Helpers, coordinate transformations, etc.
-include(joinpath(@__DIR__, "Helpers.jl"))
-import .Helpers as hp
+# Import Helpers from sibling module
+import ..Helpers as hp
 
 # ======================
 # Exports
@@ -31,7 +31,7 @@ export spin_wavefunction,
        normalize_wavefunction
 
 # All possible proton and constituent quark spin configurations
-# Eq.(31) to (38) in the reference above, or Eq.(22) and (23) in the draft
+# Eq.(31) to (38) in the reference above.
 # Maps spin tuple with externally assigned 
 # kinematical parameters to expression
 # Spin flip obtained by flippng sign of k_{L,R} and overall sign
@@ -285,4 +285,4 @@ function normalize_wavefunction()
 end
 
 # ======================
-end # module LightConeCQM
+end # module Wavefunctions

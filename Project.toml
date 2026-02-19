@@ -1,7 +1,7 @@
-name = "GluonSiversLCCQM"
+name = "NucleonLCCQM"
 uuid = "8b9e7c42-1a3d-4e5f-9a2b-3c4d5e6f7a8b"
 authors = ["fhechenberger"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1"
