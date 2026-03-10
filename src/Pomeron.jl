@@ -23,7 +23,7 @@ import ..Wavefunctions as wfs
 # Exports
 # ======================
 
-# (none yet)
+export quadratic_color_correlator
 
 # ======================
 # Distributions

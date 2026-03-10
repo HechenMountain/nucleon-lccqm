@@ -24,7 +24,7 @@ res, err, prob, neval, fail, nregions = gluon_sivers([0.5, 0.0]; μ=0.0, solver=
 
 ## Configuration
 Model parameters (masses, wavefunction type, normalizations) are defined in `src/parameters.jl`.
-Adjust WF_TYPE, MQ, BETA, NORM, etc. as needed.
+Adjust WF_TYPE, MQ, BETA, NORM, etc. as needed, then use result of normalize_wavefunction() to ensure proper normalization.
 """
 module NucleonLCCQM
 
@@ -53,6 +53,7 @@ include("Pomeron.jl")
 using .Wavefunctions
 using .EMFormFactors
 using .Odderon
+using .Pomeron
 
 # ======================
 # Exports
@@ -81,6 +82,9 @@ export cubic_color_correlator,
        odderon_distribution,
        odderon_distribution_r,
        gluon_sivers
+
+# Re-exported from Pomeron
+export quadratic_color_correlator
 
 # ======================
 end # module NucleonLCCQM
