@@ -1,0 +1,19 @@
+name = "NucleonLCCQM"
+uuid = "8b9e7c42-1a3d-4e5f-9a2b-3c4d5e6f7a8b"
+authors = ["fhechenberger"]
+version = "0.2.0"
+
+[deps]
+Cuba = "8a292aeb-7a57-582c-b821-06e4c11590b1"
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SharedArrays = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+
+[compat]
+julia = "1.9"
+Cuba = "2"
+SpecialFunctions = "2"
+StaticArrays = "1"
