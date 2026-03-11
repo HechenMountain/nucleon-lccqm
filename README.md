@@ -1,6 +1,6 @@
 # NucleonLCCQM.jl
 
-Julia package for computing observables in a light-cone constituent quark model.
+Julia package for computing observables in a light-cone constituent quark model. This code was used to generate the results reported in [arXiv:2603.09630](https://arxiv.org/abs/2603.09630).
 
 ## About
 We parametrize the light-cone baryon wavefunction in a truncated three-quark Fock sector, compute the electromagnetic Dirac/Pauli form factors, build the cubic color correlator, and integrate it to obtain the gluon Sivers function at non-vanishing transverse momentum transfer.
@@ -138,4 +138,8 @@ nucleon-lccqm/
 Generated data and plots from this model are archived on Zenodo:
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18703045.svg)](https://doi.org/10.5281/zenodo.18703045)
+
+## References
+
+- [arXiv:2603.09630](https://arxiv.org/abs/2603.09630)
 
